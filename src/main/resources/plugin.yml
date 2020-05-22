@@ -1,0 +1,5 @@
+main: eu.hiddenite.shops.ShopsPlugin
+name: HiddeniteShops
+version: 1.0.0
+api-version: 1.15
+author: Hiddenite

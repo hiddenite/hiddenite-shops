@@ -1,0 +1,21 @@
+mysql:
+  host: "127.0.0.1"
+  user: "root"
+  password: ""
+  database: "my_server"
+shipping_box:
+  messages:
+    inventory_title: "Sell your useless items!"
+    scoreboard_title: "Box"
+    scoreboard_separator: "======="
+    scoreboard_item_count: "{ITEM_COUNT} item{ITEM_COUNT_PLURAL_1}"
+    scoreboard_total_price: "{TOTAL_PRICE} $"
+    open_message: "Drop the items you want to sell in this box!"
+    sold_message: "Sold {ITEM_COUNT} item{ITEM_COUNT_PLURAL_1} for {TOTAL_PRICE} $."
+    not_for_sale: "You can't sell {ITEM_NAME} through this box."
+  prices:
+    dirt: 1
+    redstone: 10
+    iron_ingot: 100
+    gold_ingot: 200
+    diamond: 1000
