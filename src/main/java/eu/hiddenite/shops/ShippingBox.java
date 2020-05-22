@@ -38,7 +38,7 @@ public class ShippingBox {
         }
 
         Objective objective = scoreboard.registerNewObjective("box", "",
-                Objects.toString(config.getString("shipping-box.messages.scoreboard-title"), "")
+                Objects.toString(config.getString("shipping-box.messages.scoreboard-title"), " ")
         );
         objective.setDisplaySlot(DisplaySlot.SIDEBAR);
 

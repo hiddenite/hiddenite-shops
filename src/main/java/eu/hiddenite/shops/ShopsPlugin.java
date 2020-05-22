@@ -1,5 +1,6 @@
 package eu.hiddenite.shops;
 
+import org.bukkit.command.PluginCommand;
 import org.bukkit.entity.Player;
 import org.bukkit.plugin.java.JavaPlugin;
 
@@ -21,6 +22,11 @@ public class ShopsPlugin extends JavaPlugin {
         }
 
         shippingBoxManager = new ShippingBoxManager(this);
+
+        PluginCommand shopCommand = getCommand("shop");
+        if (shopCommand != null) {
+            shopCommand.setExecutor(new ShopCommand(this));
+        }
     }
 
     @Override
@@ -30,6 +36,10 @@ public class ShopsPlugin extends JavaPlugin {
 
     public Database getDatabase() {
         return database;
+    }
+
+    public ShippingBoxManager getShippingBoxManager() {
+        return shippingBoxManager;
     }
 
     public void updateCurrency(final Player player, final int delta) {

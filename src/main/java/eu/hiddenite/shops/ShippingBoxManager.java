@@ -1,10 +1,9 @@
 package eu.hiddenite.shops;
 
-import org.bukkit.Bukkit;
-import org.bukkit.Material;
-import org.bukkit.Sound;
+import org.bukkit.*;
+import org.bukkit.block.Block;
+import org.bukkit.block.Chest;
 import org.bukkit.configuration.Configuration;
-import org.bukkit.configuration.ConfigurationSection;
 import org.bukkit.entity.HumanEntity;
 import org.bukkit.entity.Player;
 import org.bukkit.event.EventHandler;
@@ -17,6 +16,7 @@ import org.bukkit.event.inventory.InventoryDragEvent;
 import org.bukkit.event.player.PlayerInteractEvent;
 import org.bukkit.inventory.Inventory;
 import org.bukkit.inventory.ItemStack;
+import org.bukkit.persistence.PersistentDataType;
 
 import java.sql.PreparedStatement;
 import java.sql.ResultSet;
@@ -29,14 +29,17 @@ public class ShippingBoxManager implements Listener {
     private final Configuration config;
     private final HashMap<UUID, ShippingBox> shippingBoxes = new HashMap<>();
     private final HashMap<Material, Integer> prices = new HashMap<>();
+    private final NamespacedKey shippingBoxKey;
 
     public ShippingBoxManager(ShopsPlugin plugin) {
         this.plugin = plugin;
         this.config = plugin.getConfig();
 
-        plugin.getServer().getPluginManager().registerEvents(this, plugin);
+        shippingBoxKey = new NamespacedKey(plugin, "shipping-box");
 
         loadPrices();
+
+        plugin.getServer().getPluginManager().registerEvents(this, plugin);
     }
 
     private void loadPrices() {
@@ -63,31 +66,37 @@ public class ShippingBoxManager implements Listener {
 
     @EventHandler
     public void onPlayerInteract(final PlayerInteractEvent event) {
-        if (event.getAction() == Action.RIGHT_CLICK_BLOCK) {
-            if (event.getClickedBlock() != null && event.getClickedBlock().getType() == Material.CHEST) {
-                event.setCancelled(true);
-
-                Player player = event.getPlayer();
-
-                if (!shippingBoxes.containsKey(player.getUniqueId())) {
-                    shippingBoxes.put(player.getUniqueId(),
-                            new ShippingBox(this, config,
-                                    event.getClickedBlock().getLocation().add(0.5, 1.0, 0.5)
-                            )
-                    );
-                }
-                ShippingBox shippingBox = shippingBoxes.get(player.getUniqueId());
-
-                String openMessage = config.getString("shipping-box.messages.open-message");
-                if (openMessage != null) {
-                    player.sendMessage(openMessage);
-                }
-
-                player.openInventory(shippingBox.inventory);
-                player.setScoreboard(shippingBox.scoreboard);
-                player.playSound(shippingBox.location, Sound.BLOCK_CHEST_OPEN, 0.5f, 1.0f);
-            }
+        if (event.getAction() != Action.RIGHT_CLICK_BLOCK) {
+            return;
         }
+        if (!isBlockValidChest(event.getClickedBlock())) {
+            return;
+        }
+        if (!isBlockShippingBox(event.getClickedBlock())) {
+            return;
+        }
+
+        event.setCancelled(true);
+        Player player = event.getPlayer();
+
+        if (!shippingBoxes.containsKey(player.getUniqueId())) {
+            shippingBoxes.put(player.getUniqueId(),
+                    new ShippingBox(this, config,
+                            event.getClickedBlock().getLocation().add(0.5, 1.0, 0.5)
+                    )
+            );
+        }
+
+        ShippingBox shippingBox = shippingBoxes.get(player.getUniqueId());
+
+        String openMessage = config.getString("shipping-box.messages.open-message");
+        if (openMessage != null) {
+            player.sendMessage(openMessage);
+        }
+
+        player.openInventory(shippingBox.inventory);
+        player.setScoreboard(shippingBox.scoreboard);
+        player.playSound(shippingBox.location, Sound.BLOCK_CHEST_OPEN, 0.5f, 1.0f);
     }
 
     @EventHandler
@@ -183,6 +192,8 @@ public class ShippingBoxManager implements Listener {
         player.playSound(shippingBox.location, Sound.BLOCK_CHEST_CLOSE, 0.5f, 1.0f);
 
         if (itemCount > 0) {
+            plugin.getLogger().info("[ShippingBox] " + player.getName() + " sold " + itemCount + " items for " + totalPrice);
+
             String soldMessage = config.getString("shipping-box.messages.sold-message");
             if (soldMessage != null) {
                 String formattedTotalPrice = String.format("%.2f", totalPrice / 100.0);
@@ -198,8 +209,18 @@ public class ShippingBoxManager implements Listener {
         player.setScoreboard(Bukkit.getScoreboardManager().getMainScoreboard());
         shippingBoxes.remove(player.getUniqueId());
 
-        plugin.getLogger().info("[ShippingBox] " + player.getName() + " sold " + itemCount + " items for " + totalPrice);
         plugin.updateCurrency(player, totalPrice);
+    }
+
+    public void createShippingBox(Player player) {
+        Block block = player.getTargetBlock(10);
+
+        if (!setBlockAsShippingBox(block)) {
+            player.sendMessage("Fail, please target a valid chest.");
+            return;
+        }
+
+        player.sendMessage("Done, the chest is now a shipping box.");
     }
 
     private ShippingBox getShippingBoxFromEvent(HumanEntity humanEntity, Inventory inventory) {
@@ -223,5 +244,40 @@ public class ShippingBoxManager implements Listener {
             notForSaleMessage = notForSaleMessage.replace("{ITEM_NAME}", material.name());
             player.sendMessage(notForSaleMessage);
         }
+    }
+
+    private boolean isBlockValidChest(Block block) {
+        if (block == null) {
+            return false;
+        }
+        if (block.getType() != Material.CHEST) {
+            return false;
+        }
+        if (!(block.getState() instanceof Chest)) {
+            return false;
+        }
+        return true;
+    }
+
+    private boolean isBlockShippingBox(Block block) {
+        if (!isBlockValidChest(block)) {
+            return false;
+        }
+        Chest chest = (Chest)block.getState();
+        Byte boxData = chest.getPersistentDataContainer().get(shippingBoxKey, PersistentDataType.BYTE);
+        if (boxData == null) {
+            return false;
+        }
+        return boxData == 1;
+    }
+
+    private boolean setBlockAsShippingBox(Block block) {
+        if (!isBlockValidChest(block)) {
+            return false;
+        }
+        Chest chest = (Chest)block.getState();
+        chest.getPersistentDataContainer().set(shippingBoxKey, PersistentDataType.BYTE, (byte)1);
+        chest.update();
+        return true;
     }
 }

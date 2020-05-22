@@ -3,3 +3,12 @@ name: HiddeniteShops
 version: 1.0.0
 api-version: 1.15
 author: Hiddenite
+commands:
+  shop:
+    permission: hiddenite.shop
+    description: "Manages the shops."
+    usage: "/<command>"
+permissions:
+  hiddenite.shop:
+    description: "Allows the /shop command."
+    default: op
