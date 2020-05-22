@@ -18,6 +18,9 @@ import org.bukkit.event.player.PlayerInteractEvent;
 import org.bukkit.inventory.Inventory;
 import org.bukkit.inventory.ItemStack;
 
+import java.sql.PreparedStatement;
+import java.sql.ResultSet;
+import java.sql.SQLException;
 import java.util.HashMap;
 import java.util.UUID;
 
@@ -33,12 +36,24 @@ public class ShippingBoxManager implements Listener {
 
         plugin.getServer().getPluginManager().registerEvents(this, plugin);
 
-        ConfigurationSection pricesSection = config.getConfigurationSection("shipping_box.prices");
-        if (pricesSection != null) {
-            pricesSection.getKeys(false).forEach(key -> {
-                int price = pricesSection.getInt(key);
-                prices.put(Material.valueOf(key.toUpperCase()), price);
-            });
+        loadPrices();
+    }
+
+    private void loadPrices() {
+        try (PreparedStatement ps = plugin.getDatabase().prepareStatement(
+                "SELECT material_name, price FROM shipping_box_prices"
+        )) {
+            try (ResultSet rs = ps.executeQuery()) {
+                while (rs.next()) {
+                    Material material = Material.valueOf(rs.getString(1));
+                    int price = rs.getInt(2);
+                    prices.put(material, price);
+                }
+            }
+            plugin.getLogger().info("[ShippingBox] Loaded " + prices.size() + " prices");
+        } catch (SQLException e) {
+            plugin.getLogger().warning("[ShippingBox] Could not retrieve prices");
+            e.printStackTrace();
         }
     }
 
@@ -63,7 +78,7 @@ public class ShippingBoxManager implements Listener {
                 }
                 ShippingBox shippingBox = shippingBoxes.get(player.getUniqueId());
 
-                String openMessage = config.getString("shipping_box.messages.open_message");
+                String openMessage = config.getString("shipping-box.messages.open-message");
                 if (openMessage != null) {
                     player.sendMessage(openMessage);
                 }
@@ -168,7 +183,7 @@ public class ShippingBoxManager implements Listener {
         player.playSound(shippingBox.location, Sound.BLOCK_CHEST_CLOSE, 0.5f, 1.0f);
 
         if (itemCount > 0) {
-            String soldMessage = config.getString("shipping_box.messages.sold_message");
+            String soldMessage = config.getString("shipping-box.messages.sold-message");
             if (soldMessage != null) {
                 String formattedTotalPrice = String.format("%.2f", totalPrice / 100.0);
                 soldMessage = soldMessage.replace("{ITEM_COUNT}", String.valueOf(itemCount));
@@ -183,7 +198,7 @@ public class ShippingBoxManager implements Listener {
         player.setScoreboard(Bukkit.getScoreboardManager().getMainScoreboard());
         shippingBoxes.remove(player.getUniqueId());
 
-        plugin.getLogger().info(player.getName() + " sold " + itemCount + " items for " + totalPrice);
+        plugin.getLogger().info("[ShippingBox] " + player.getName() + " sold " + itemCount + " items for " + totalPrice);
         plugin.updateCurrency(player, totalPrice);
     }
 
@@ -203,7 +218,7 @@ public class ShippingBoxManager implements Listener {
     }
 
     private void sendNotForSaleMessage(Player player, Material material) {
-        String notForSaleMessage = config.getString("shipping_box.messages.not_for_sale");
+        String notForSaleMessage = config.getString("shipping-box.messages.not-for-sale");
         if (notForSaleMessage != null) {
             notForSaleMessage = notForSaleMessage.replace("{ITEM_NAME}", material.name());
             player.sendMessage(notForSaleMessage);

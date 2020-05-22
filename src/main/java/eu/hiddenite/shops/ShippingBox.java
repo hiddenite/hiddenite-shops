@@ -24,7 +24,7 @@ public class ShippingBox {
         this.location = location;
 
         inventory = Bukkit.createInventory(null,9,
-                Objects.toString(config.getString("shipping_box.messages.inventory_title"), "")
+                Objects.toString(config.getString("shipping-box.messages.inventory-title"), "")
         );
 
         scoreboard = Bukkit.getScoreboardManager().getNewScoreboard();
@@ -38,7 +38,7 @@ public class ShippingBox {
         }
 
         Objective objective = scoreboard.registerNewObjective("box", "",
-                Objects.toString(config.getString("shipping_box.messages.scoreboard_title"), "")
+                Objects.toString(config.getString("shipping-box.messages.scoreboard-title"), "")
         );
         objective.setDisplaySlot(DisplaySlot.SIDEBAR);
 
@@ -51,12 +51,12 @@ public class ShippingBox {
             }
         }
 
-        String separatorText = config.getString("shipping_box.messages.scoreboard_separator");
+        String separatorText = config.getString("shipping-box.messages.scoreboard-separator");
         if (separatorText != null) {
             Score score = objective.getScore(separatorText);
             score.setScore(3);
         }
-        String itemCountText = config.getString("shipping_box.messages.scoreboard_item_count");
+        String itemCountText = config.getString("shipping-box.messages.scoreboard-item-count");
         if (itemCountText != null) {
             itemCountText = itemCountText.replace("{ITEM_COUNT}", String.valueOf(itemCount));
             itemCountText = itemCountText.replace("{ITEM_COUNT_PLURAL_1}", itemCount != 1 ? "s" : "");
@@ -64,7 +64,7 @@ public class ShippingBox {
             Score score = objective.getScore(itemCountText);
             score.setScore(2);
         }
-        String totalPriceText = config.getString("shipping_box.messages.scoreboard_total_price");
+        String totalPriceText = config.getString("shipping-box.messages.scoreboard-total-price");
         if (totalPriceText != null) {
             String formattedTotalPrice = String.format("%.2f", totalPrice / 100.0);
             totalPriceText = totalPriceText.replace("{TOTAL_PRICE}", formattedTotalPrice);

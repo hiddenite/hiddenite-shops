@@ -28,6 +28,10 @@ public class ShopsPlugin extends JavaPlugin {
         database.close();
     }
 
+    public Database getDatabase() {
+        return database;
+    }
+
     public void updateCurrency(final Player player, final int delta) {
         getServer().getScheduler().runTaskAsynchronously(this, () -> {
             try (PreparedStatement ps = database.prepareStatement("INSERT INTO currency" +
