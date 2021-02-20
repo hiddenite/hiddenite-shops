@@ -13,3 +13,6 @@ shipping-box:
     open-message: "Drop the items you want to sell in this box!"
     sold-message: "Sold {ITEM_COUNT} item{ITEM_COUNT_PLURAL_1} for {TOTAL_PRICE} $."
     not-for-sale: "You can't sell {ITEM_NAME} through this box."
+  signs:
+    item-of-the-day-price-1: "$ {PRICE}"
+    item-of-the-day-price-2: "each!"

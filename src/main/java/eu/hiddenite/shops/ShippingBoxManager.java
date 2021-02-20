@@ -3,6 +3,7 @@ package eu.hiddenite.shops;
 import org.bukkit.*;
 import org.bukkit.block.Block;
 import org.bukkit.block.Chest;
+import org.bukkit.block.Sign;
 import org.bukkit.configuration.Configuration;
 import org.bukkit.entity.HumanEntity;
 import org.bukkit.entity.Player;
@@ -21,8 +22,7 @@ import org.bukkit.persistence.PersistentDataType;
 import java.sql.PreparedStatement;
 import java.sql.ResultSet;
 import java.sql.SQLException;
-import java.util.HashMap;
-import java.util.UUID;
+import java.util.*;
 
 public class ShippingBoxManager implements Listener {
     private final ShopsPlugin plugin;
@@ -31,6 +31,12 @@ public class ShippingBoxManager implements Listener {
     private final HashMap<Material, Integer> prices = new HashMap<>();
     private final NamespacedKey shippingBoxKey;
 
+    private final HashMap<Material, Integer> pricesOfTheDay = new LinkedHashMap<>();
+    private final HashMap<Material, String> translatedNames = new HashMap<>();
+    private Material itemOfTheDay = null;
+
+    private final int[] itemOfTheDayMultipliers = { 0, 2, 5, 10, 25, 50 };
+
     public ShippingBoxManager(ShopsPlugin plugin) {
         this.plugin = plugin;
         this.config = plugin.getConfig();
@@ -38,19 +44,27 @@ public class ShippingBoxManager implements Listener {
         shippingBoxKey = new NamespacedKey(plugin, "shipping-box");
 
         loadPrices();
+        selectItemOfTheDay();
 
         plugin.getServer().getPluginManager().registerEvents(this, plugin);
     }
 
     private void loadPrices() {
         try (PreparedStatement ps = plugin.getDatabase().prepareStatement(
-                "SELECT material_name, price FROM shipping_box_prices"
+                "SELECT material_name, french_name, price, rarity FROM shipping_box_prices ORDER BY material_name"
         )) {
             try (ResultSet rs = ps.executeQuery()) {
                 while (rs.next()) {
                     Material material = Material.valueOf(rs.getString(1));
-                    int price = rs.getInt(2);
+                    String translatedName = rs.getString(2);
+                    int price = rs.getInt(3);
+                    int rarity = rs.getInt(4);
+
                     prices.put(material, price);
+                    translatedNames.put(material, translatedName);
+                    if (rarity > 0) {
+                        pricesOfTheDay.put(material, price * itemOfTheDayMultipliers[rarity]);
+                    }
                 }
             }
             plugin.getLogger().info("[ShippingBox] Loaded " + prices.size() + " prices");
@@ -60,7 +74,110 @@ public class ShippingBoxManager implements Listener {
         }
     }
 
+    private void selectItemOfTheDay() {
+        Calendar cal = Calendar.getInstance();
+
+        int day = cal.get(Calendar.DAY_OF_MONTH);
+        int month = cal.get(Calendar.MONTH);
+        int year = cal.get(Calendar.YEAR);
+        int hash = hashcodeFromInteger(year * 31 * 12 + month * 12 + day);
+
+        ArrayList<Material> availableItems = new ArrayList<>(pricesOfTheDay.keySet());
+        itemOfTheDay = availableItems.get(hash % availableItems.size());
+
+        plugin.getLogger().info("[ShippingBox] Item of the day: " + itemOfTheDay + " (hash " + hash + ")");
+
+        updateItemOfTheDaySigns();
+    }
+
+    private void updateItemOfTheDaySigns() {
+        World world = Bukkit.getWorld("island");
+        if (world == null) {
+            plugin.getLogger().warning("[ShippingBox] Island world not found.");
+            return;
+        }
+
+        Block block = world.getBlockAt(17, 68, 0);
+
+        if (!(block.getState() instanceof Sign)) {
+            plugin.getLogger().warning("[ShippingBox] Item of the day sign not found.");
+            return;
+        }
+
+        Sign sign = (Sign)block.getState();
+
+        String name = translatedNames.get(itemOfTheDay);
+        String[] words = name.split(" ");
+        ArrayList<String> lines = new ArrayList<>();
+        StringBuilder line = new StringBuilder();
+
+        for (String word : words){
+            if (line.length() + word.length() > 15) {
+                lines.add(line.toString());
+                line = new StringBuilder();
+            } else {
+                line.append(" ");
+            }
+            line.append(word);
+        }
+        lines.add(line.toString());
+
+        sign.setLine(0, "");
+        sign.setLine(1, "");
+        sign.setLine(2, "");
+        sign.setLine(3, "");
+
+        if (lines.size() == 1) {
+            sign.setLine(1, lines.get(0));
+        } else if (lines.size() == 2) {
+            sign.setLine(1, lines.get(0));
+            sign.setLine(2, lines.get(1));
+        } else if (lines.size() == 3) {
+            sign.setLine(0, lines.get(0));
+            sign.setLine(1, lines.get(1));
+            sign.setLine(2, lines.get(2));
+        } else {
+            sign.setLine(0, lines.get(0));
+            sign.setLine(1, lines.get(1));
+            sign.setLine(2, lines.get(2));
+            sign.setLine(3, lines.get(3));
+        }
+
+        sign.update();
+
+        block = world.getBlockAt(17, 68, 1);
+
+        if (!(block.getState() instanceof Sign)) {
+            plugin.getLogger().warning("[ShippingBox] Item of the day sign not found.");
+            return;
+        }
+
+        String line1 = Objects.toString(config.getString("shipping-box.signs.item-of-the-day-price-1"), "");
+        String line2 = Objects.toString(config.getString("shipping-box.signs.item-of-the-day-price-2"), "");
+
+        String formattedPrice = String.format("%.2f", getPrice(itemOfTheDay) / 100.0);
+        line1 = line1.replace("{PRICE}", formattedPrice);
+        line2 = line2.replace("{PRICE}", formattedPrice);
+
+        sign = (Sign)block.getState();
+        sign.setLine(0, "");
+        sign.setLine(1, line1);
+        sign.setLine(2, line2);
+        sign.setLine(3, "");
+        sign.update();
+    }
+
+    private int hashcodeFromInteger(int x) {
+        x = ((x >> 16) ^ x) * 0x45d9f3b;
+        x = ((x >> 16) ^ x) * 0x45d9f3b;
+        x = (x >> 16) ^ x;
+        return x;
+    }
+
     public int getPrice(Material material) {
+        if (itemOfTheDay == material) {
+            return pricesOfTheDay.getOrDefault(material, 0);
+        }
         return prices.getOrDefault(material, 0);
     }
 
@@ -253,10 +370,7 @@ public class ShippingBoxManager implements Listener {
         if (block.getType() != Material.CHEST) {
             return false;
         }
-        if (!(block.getState() instanceof Chest)) {
-            return false;
-        }
-        return true;
+        return block.getState() instanceof Chest;
     }
 
     private boolean isBlockShippingBox(Block block) {
