@@ -1,5 +1,6 @@
-package eu.hiddenite.shops;
+package eu.hiddenite.shops.shipping;
 
+import eu.hiddenite.shops.ShopsPlugin;
 import org.bukkit.*;
 import org.bukkit.block.Block;
 import org.bukkit.block.Chest;
@@ -49,6 +50,10 @@ public class ShippingBoxManager implements Listener {
         plugin.getServer().getPluginManager().registerEvents(this, plugin);
     }
 
+    public ShopsPlugin getPlugin() {
+        return plugin;
+    }
+
     private void loadPrices() {
         try (PreparedStatement ps = plugin.getDatabase().prepareStatement(
                 "SELECT material_name, french_name, price, rarity FROM shipping_box_prices ORDER BY material_name"
@@ -87,7 +92,7 @@ public class ShippingBoxManager implements Listener {
 
         plugin.getLogger().info("[ShippingBox] Item of the day: " + itemOfTheDay + " (hash " + hash + ")");
 
-        updateItemOfTheDaySigns();
+        Bukkit.getScheduler().scheduleSyncDelayedTask(plugin, this::updateItemOfTheDaySigns, 200);
     }
 
     private void updateItemOfTheDaySigns() {
@@ -155,7 +160,7 @@ public class ShippingBoxManager implements Listener {
         String line1 = Objects.toString(config.getString("shipping-box.signs.item-of-the-day-price-1"), "");
         String line2 = Objects.toString(config.getString("shipping-box.signs.item-of-the-day-price-2"), "");
 
-        String formattedPrice = String.format("%.2f", getPrice(itemOfTheDay) / 100.0);
+        String formattedPrice = plugin.getEconomy().format(getPrice(itemOfTheDay));
         line1 = line1.replace("{PRICE}", formattedPrice);
         line2 = line2.replace("{PRICE}", formattedPrice);
 
@@ -235,6 +240,11 @@ public class ShippingBoxManager implements Listener {
                         event.setCancelled(true);
                         return;
                     }
+                    if (stack.getEnchantments().size() > 0) {
+                        sendNotForSaleMessage(player, stack.getType());
+                        event.setCancelled(true);
+                        return;
+                    }
                 }
             }
         } else if (event.getAction() == InventoryAction.MOVE_TO_OTHER_INVENTORY) {
@@ -242,6 +252,11 @@ public class ShippingBoxManager implements Listener {
                 ItemStack stack = event.getCurrentItem();
                 if (stack != null) {
                     if (!prices.containsKey(stack.getType())) {
+                        sendNotForSaleMessage(player, stack.getType());
+                        event.setCancelled(true);
+                        return;
+                    }
+                    if (stack.getEnchantments().size() > 0) {
                         sendNotForSaleMessage(player, stack.getType());
                         event.setCancelled(true);
                         return;
@@ -313,7 +328,7 @@ public class ShippingBoxManager implements Listener {
 
             String soldMessage = config.getString("shipping-box.messages.sold-message");
             if (soldMessage != null) {
-                String formattedTotalPrice = String.format("%.2f", totalPrice / 100.0);
+                String formattedTotalPrice = plugin.getEconomy().format(totalPrice);
                 soldMessage = soldMessage.replace("{ITEM_COUNT}", String.valueOf(itemCount));
                 soldMessage = soldMessage.replace("{ITEM_COUNT_PLURAL_1}", itemCount != 1 ? "s" : "");
                 soldMessage = soldMessage.replace("{ITEM_COUNT_PLURAL_01}", itemCount > 1 ? "s" : "");
@@ -326,7 +341,7 @@ public class ShippingBoxManager implements Listener {
         player.setScoreboard(Bukkit.getScoreboardManager().getMainScoreboard());
         shippingBoxes.remove(player.getUniqueId());
 
-        plugin.updateCurrency(player, totalPrice);
+        plugin.getEconomy().addMoney(player.getUniqueId(), totalPrice);
     }
 
     public void createShippingBox(Player player) {

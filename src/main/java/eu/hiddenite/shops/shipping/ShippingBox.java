@@ -1,4 +1,4 @@
-package eu.hiddenite.shops;
+package eu.hiddenite.shops.shipping;
 
 import org.bukkit.*;
 import org.bukkit.configuration.Configuration;
@@ -66,7 +66,7 @@ public class ShippingBox {
         }
         String totalPriceText = config.getString("shipping-box.messages.scoreboard-total-price");
         if (totalPriceText != null) {
-            String formattedTotalPrice = String.format("%.2f", totalPrice / 100.0);
+            String formattedTotalPrice = manager.getPlugin().getEconomy().format(totalPrice);
             totalPriceText = totalPriceText.replace("{TOTAL_PRICE}", formattedTotalPrice);
             Score score = objective.getScore(totalPriceText);
             score.setScore(1);

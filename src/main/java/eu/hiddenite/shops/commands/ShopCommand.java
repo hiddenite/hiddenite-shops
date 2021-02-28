@@ -1,5 +1,6 @@
-package eu.hiddenite.shops;
+package eu.hiddenite.shops.commands;
 
+import eu.hiddenite.shops.ShopsPlugin;
 import org.bukkit.command.Command;
 import org.bukkit.command.CommandExecutor;
 import org.bukkit.command.CommandSender;

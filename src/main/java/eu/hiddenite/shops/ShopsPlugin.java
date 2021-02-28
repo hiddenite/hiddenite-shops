@@ -1,14 +1,14 @@
 package eu.hiddenite.shops;
 
+import eu.hiddenite.shops.commands.ShopCommand;
+import eu.hiddenite.shops.shipping.ShippingBoxManager;
 import org.bukkit.command.PluginCommand;
-import org.bukkit.entity.Player;
 import org.bukkit.plugin.java.JavaPlugin;
-
-import java.sql.PreparedStatement;
-import java.sql.SQLException;
 
 public class ShopsPlugin extends JavaPlugin {
     private Database database;
+    private Economy economy;
+
     private ShippingBoxManager shippingBoxManager;
 
     @Override
@@ -20,6 +20,8 @@ public class ShopsPlugin extends JavaPlugin {
             getLogger().warning("Could not connect to the database. Plugin not enabled.");
             return;
         }
+
+        economy = new Economy(database, getLogger());
 
         shippingBoxManager = new ShippingBoxManager(this);
 
@@ -38,25 +40,11 @@ public class ShopsPlugin extends JavaPlugin {
         return database;
     }
 
-    public ShippingBoxManager getShippingBoxManager() {
-        return shippingBoxManager;
+    public Economy getEconomy() {
+        return economy;
     }
 
-    public void updateCurrency(final Player player, final int delta) {
-        getServer().getScheduler().runTaskAsynchronously(this, () -> {
-            try (PreparedStatement ps = database.prepareStatement("INSERT INTO currency" +
-                    " (player_id, amount)" +
-                    " VALUES (?, ?)" +
-                    " ON DUPLICATE KEY UPDATE amount = amount + ?"
-            )) {
-                ps.setString(1, player.getUniqueId().toString());
-                ps.setInt(2, delta);
-                ps.setInt(3, delta);
-                ps.executeUpdate();
-            } catch (SQLException e) {
-                getLogger().warning("Could not update currency, player " + player.getName() + ", delta " + delta);
-                e.printStackTrace();
-            }
-        });
+    public ShippingBoxManager getShippingBoxManager() {
+        return shippingBoxManager;
     }
 }
