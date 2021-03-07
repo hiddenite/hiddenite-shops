@@ -6,6 +6,7 @@ import org.bukkit.block.Block;
 import org.bukkit.block.Chest;
 import org.bukkit.block.Sign;
 import org.bukkit.configuration.Configuration;
+import org.bukkit.configuration.ConfigurationSection;
 import org.bukkit.entity.HumanEntity;
 import org.bukkit.entity.Player;
 import org.bukkit.event.EventHandler;
@@ -96,16 +97,37 @@ public class ShippingBoxManager implements Listener {
     }
 
     private void updateItemOfTheDaySigns() {
-        World world = Bukkit.getWorld("island");
-        if (world == null) {
-            plugin.getLogger().warning("[ShippingBox] Island world not found.");
-            return;
+        ConfigurationSection section = getPlugin().getConfig().getConfigurationSection("shipping-box.item-of-the-day.signs");
+        if (section != null) {
+            for (String key : section.getKeys(false)) {
+                ConfigurationSection signSection = section.getConfigurationSection(key);
+                if (signSection == null) {
+                    continue;
+                }
+                String worldName = signSection.getString("world");
+                List<Integer> nameCoordinates = signSection.getIntegerList("name");
+                List<Integer> priceCoordinates = signSection.getIntegerList("price");
+                if (worldName == null || nameCoordinates.size() != 3 || priceCoordinates.size() != 3) {
+                    continue;
+                }
+                World world = Bukkit.getWorld(worldName);
+                if (world == null) {
+                    continue;
+                }
+                updateSignAtLocation(
+                        new Location(world, nameCoordinates.get(0), nameCoordinates.get(1), nameCoordinates.get(2)),
+                        new Location(world, priceCoordinates.get(0), priceCoordinates.get(1), priceCoordinates.get(2))
+                );
+            }
         }
+    }
 
-        Block block = world.getBlockAt(17, 68, 0);
+    private void updateSignAtLocation(Location nameLocation, Location priceLocation) {
+        World world = nameLocation.getWorld();
+        Block block = world.getBlockAt(nameLocation);
 
         if (!(block.getState() instanceof Sign)) {
-            plugin.getLogger().warning("[ShippingBox] Item of the day sign not found.");
+            plugin.getLogger().warning("[ShippingBox] Item of the day sign not found: " + nameLocation);
             return;
         }
 
@@ -150,10 +172,10 @@ public class ShippingBoxManager implements Listener {
 
         sign.update();
 
-        block = world.getBlockAt(17, 68, 1);
+        block = world.getBlockAt(priceLocation);
 
         if (!(block.getState() instanceof Sign)) {
-            plugin.getLogger().warning("[ShippingBox] Item of the day sign not found.");
+            plugin.getLogger().warning("[ShippingBox] Item of the day sign not found: " + priceLocation);
             return;
         }
 
