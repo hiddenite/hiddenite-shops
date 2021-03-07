@@ -10,8 +10,12 @@ import org.bukkit.event.Listener;
 import org.bukkit.event.block.Action;
 import org.bukkit.event.player.PlayerInteractEvent;
 
+import java.util.HashMap;
+import java.util.UUID;
+
 public class CasinoManager implements Listener {
     private final ShopsPlugin plugin;
+    private final HashMap<UUID, Long> moneyButtonDelay = new HashMap<>();
 
     public CasinoManager(ShopsPlugin plugin) {
         this.plugin = plugin;
@@ -31,11 +35,23 @@ public class CasinoManager implements Listener {
 
         if (clickedBlock.getX() == 11 && clickedBlock.getY() == 68 && clickedBlock.getZ() == -12) {
             Player player = event.getPlayer();
+            UUID playerID = player.getUniqueId();
+
+            long currentTimeStamp = System.currentTimeMillis();
+            if (moneyButtonDelay.containsKey(playerID))
+            {
+                long timePassed = currentTimeStamp - moneyButtonDelay.get(playerID);
+                if (timePassed < 1000)
+                {
+                    return;
+                }
+            };
 
             Economy.ResultType result = plugin.getEconomy().addMoney(player.getUniqueId(), 1);
             if (result == Economy.ResultType.SUCCESS) {
                 long money = plugin.getEconomy().getMoney(player.getUniqueId());
                 player.sendMessage("+1! You now have " + plugin.getEconomy().format(money) + " C$");
+                moneyButtonDelay.put(player.getUniqueId(), currentTimeStamp);
             } else {
                 player.sendMessage("An error occurred :(");
             }
