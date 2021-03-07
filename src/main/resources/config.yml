@@ -3,6 +3,7 @@ mysql:
   user: "root"
   password: ""
   database: "my_server"
+
 shipping-box:
   messages:
     inventory-title: "Sell your useless items!"
@@ -16,3 +17,12 @@ shipping-box:
   signs:
     item-of-the-day-price-1: "$ {PRICE}"
     item-of-the-day-price-2: "each!"
+
+item-bank:
+  title: "Bank {ID}"
+  messages:
+    must-purchase: "To use this chest, you need to purchase it for {PRICE}."
+    purchase-not-enough: "You don't have enough money at the moment."
+    purchase-confirm: "Open this chest again to confirm the purchase."
+    purchase-success: "You purchased this chest for {PRICE}."
+    purchase-error: "An unexpected error occurred, try again later."

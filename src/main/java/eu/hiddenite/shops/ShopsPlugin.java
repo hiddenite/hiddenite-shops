@@ -1,15 +1,19 @@
 package eu.hiddenite.shops;
 
+import eu.hiddenite.shops.bank.ItemBankManager;
 import eu.hiddenite.shops.commands.ShopCommand;
 import eu.hiddenite.shops.shipping.ShippingBoxManager;
 import org.bukkit.command.PluginCommand;
 import org.bukkit.plugin.java.JavaPlugin;
+
+import java.util.Objects;
 
 public class ShopsPlugin extends JavaPlugin {
     private Database database;
     private Economy economy;
 
     private ShippingBoxManager shippingBoxManager;
+    private ItemBankManager itemBankManager;
 
     @Override
     public void onEnable() {
@@ -24,6 +28,7 @@ public class ShopsPlugin extends JavaPlugin {
         economy = new Economy(database, getLogger());
 
         shippingBoxManager = new ShippingBoxManager(this);
+        itemBankManager = new ItemBankManager(this);
 
         PluginCommand shopCommand = getCommand("shop");
         if (shopCommand != null) {
@@ -31,8 +36,13 @@ public class ShopsPlugin extends JavaPlugin {
         }
     }
 
+    public String getMessage(String configPath) {
+        return Objects.toString(getConfig().getString(configPath), "");
+    }
+
     @Override
     public void onDisable() {
+        itemBankManager.close();
         database.close();
     }
 
@@ -46,5 +56,9 @@ public class ShopsPlugin extends JavaPlugin {
 
     public ShippingBoxManager getShippingBoxManager() {
         return shippingBoxManager;
+    }
+
+    public ItemBankManager getItemBankManager() {
+        return itemBankManager;
     }
 }
