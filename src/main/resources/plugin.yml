@@ -8,6 +8,9 @@ commands:
     permission: hiddenite.shop
     description: "Manages the shops."
     usage: "/<command>"
+  sell:
+    description: "Sell an item."
+    usage: "/<command> <price>"
 permissions:
   hiddenite.shop:
     description: "Allows the /shop command."

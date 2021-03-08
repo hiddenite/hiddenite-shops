@@ -1,9 +1,9 @@
 package eu.hiddenite.shops.shipping;
 
 import eu.hiddenite.shops.ShopsPlugin;
+import eu.hiddenite.shops.helpers.ChestDataHelper;
 import org.bukkit.*;
 import org.bukkit.block.Block;
-import org.bukkit.block.Chest;
 import org.bukkit.block.Sign;
 import org.bukkit.configuration.Configuration;
 import org.bukkit.configuration.ConfigurationSection;
@@ -19,7 +19,6 @@ import org.bukkit.event.inventory.InventoryDragEvent;
 import org.bukkit.event.player.PlayerInteractEvent;
 import org.bukkit.inventory.Inventory;
 import org.bukkit.inventory.ItemStack;
-import org.bukkit.persistence.PersistentDataType;
 
 import java.sql.PreparedStatement;
 import java.sql.ResultSet;
@@ -208,15 +207,14 @@ public class ShippingBoxManager implements Listener {
         return prices.getOrDefault(material, 0);
     }
 
-    @EventHandler
+    @EventHandler(ignoreCancelled = true)
     public void onPlayerInteract(final PlayerInteractEvent event) {
         if (event.getAction() != Action.RIGHT_CLICK_BLOCK) {
             return;
         }
-        if (!isBlockValidChest(event.getClickedBlock())) {
-            return;
-        }
-        if (!isBlockShippingBox(event.getClickedBlock())) {
+
+        Block block = event.getClickedBlock();
+        if (block == null || !ChestDataHelper.isBlockChestType(block, shippingBoxKey)) {
             return;
         }
 
@@ -369,7 +367,7 @@ public class ShippingBoxManager implements Listener {
     public void createShippingBox(Player player) {
         Block block = player.getTargetBlock(10);
 
-        if (!setBlockAsShippingBox(block)) {
+        if (!ChestDataHelper.setBlockChestType(block, shippingBoxKey)) {
             player.sendMessage("Fail, please target a valid chest.");
             return;
         }
@@ -398,37 +396,5 @@ public class ShippingBoxManager implements Listener {
             notForSaleMessage = notForSaleMessage.replace("{ITEM_NAME}", material.name());
             player.sendMessage(notForSaleMessage);
         }
-    }
-
-    private boolean isBlockValidChest(Block block) {
-        if (block == null) {
-            return false;
-        }
-        if (block.getType() != Material.CHEST) {
-            return false;
-        }
-        return block.getState() instanceof Chest;
-    }
-
-    private boolean isBlockShippingBox(Block block) {
-        if (!isBlockValidChest(block)) {
-            return false;
-        }
-        Chest chest = (Chest)block.getState();
-        Byte boxData = chest.getPersistentDataContainer().get(shippingBoxKey, PersistentDataType.BYTE);
-        if (boxData == null) {
-            return false;
-        }
-        return boxData == 1;
-    }
-
-    private boolean setBlockAsShippingBox(Block block) {
-        if (!isBlockValidChest(block)) {
-            return false;
-        }
-        Chest chest = (Chest)block.getState();
-        chest.getPersistentDataContainer().set(shippingBoxKey, PersistentDataType.BYTE, (byte)1);
-        chest.update();
-        return true;
     }
 }

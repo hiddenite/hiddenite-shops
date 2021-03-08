@@ -32,3 +32,11 @@ item-bank:
     purchase-confirm: "Open this chest again to confirm the purchase."
     purchase-success: "You purchased this chest for {PRICE}."
     purchase-error: "An unexpected error occurred, try again later."
+
+market:
+  messages:
+    sell-usage: "/sell <price>"
+    sell-error: "An unexpected error occurred, try again later."
+    invalid-price: "Invalid price: {PRICE}"
+    invalid-item: "You must select an item to sell."
+    invalid-place: "You must be near the market to sell something."

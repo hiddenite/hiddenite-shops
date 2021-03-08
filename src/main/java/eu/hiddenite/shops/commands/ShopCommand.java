@@ -36,7 +36,9 @@ public class ShopCommand implements CommandExecutor, TabCompleter {
 
         if (args[0].equals("create-shipping-box")) {
             createShippingBox(player);
-        } else if (args[0].equals("create-bank-chest")) {
+        } else if (args[0].equals("create-market")) {
+            createMarketChest(player);
+        }  else if (args[0].equals("create-bank-chest")) {
             createBankChest(player, args);
         } else {
             sender.sendMessage("Invalid subcommand: " + args[0]);
@@ -47,6 +49,10 @@ public class ShopCommand implements CommandExecutor, TabCompleter {
 
     private void createShippingBox(Player player) {
         plugin.getShippingBoxManager().createShippingBox(player);
+    }
+
+    private void createMarketChest(Player player) {
+        plugin.getMarketManager().createMarketChest(player);
     }
 
     private void createBankChest(Player player, String[] args) {
@@ -78,7 +84,7 @@ public class ShopCommand implements CommandExecutor, TabCompleter {
                                       @Nonnull final String alias,
                                       @Nonnull final String[] args) {
         if (args.length == 1) {
-            return Arrays.asList("create-shipping-box", "create-bank-chest");
+            return Arrays.asList("create-shipping-box", "create-market", "create-bank-chest");
         }
         if (args.length > 1 && args[0].equals("create-bank-chest")) {
             if (args.length == 2) {

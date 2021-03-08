@@ -2,10 +2,7 @@ package eu.hiddenite.shops;
 
 import org.bukkit.configuration.Configuration;
 
-import java.sql.Connection;
-import java.sql.DriverManager;
-import java.sql.PreparedStatement;
-import java.sql.SQLException;
+import java.sql.*;
 import java.util.logging.Logger;
 
 public class Database {
@@ -34,10 +31,23 @@ public class Database {
     }
 
     public PreparedStatement prepareStatement(String statement) throws SQLException {
+        return prepareStatement(statement, Statement.NO_GENERATED_KEYS);
+    }
+
+    public PreparedStatement prepareStatement(String statement, int options) throws SQLException {
         if (!connection.isValid(1) && !createConnection()) {
             return null;
         }
-        return connection.prepareStatement(statement);
+        return connection.prepareStatement(statement, options);
+    }
+
+    public static int getGeneratedId(PreparedStatement statement) throws SQLException {
+        try (ResultSet generatedKeys = statement.getGeneratedKeys()) {
+            if (generatedKeys.next()) {
+                return generatedKeys.getInt(1);
+            }
+        }
+        return 0;
     }
 
     private boolean createConnection() {

@@ -1,10 +1,9 @@
 package eu.hiddenite.shops.bank;
 
-import com.google.gson.Gson;
-import com.google.gson.reflect.TypeToken;
 import eu.hiddenite.shops.Economy;
 import eu.hiddenite.shops.ShopsPlugin;
-import eu.hiddenite.shops.helpers.ItemStackSerializer;
+import eu.hiddenite.shops.helpers.ChestDataHelper;
+import eu.hiddenite.shops.helpers.BukkitSerializer;
 import net.md_5.bungee.api.chat.TextComponent;
 import org.bukkit.*;
 import org.bukkit.block.Block;
@@ -17,7 +16,6 @@ import org.bukkit.event.inventory.InventoryCloseEvent;
 import org.bukkit.event.player.PlayerInteractEvent;
 import org.bukkit.inventory.Inventory;
 import org.bukkit.inventory.ItemStack;
-import org.bukkit.inventory.meta.ItemMeta;
 import org.bukkit.persistence.PersistentDataType;
 
 import java.io.IOException;
@@ -25,7 +23,6 @@ import java.sql.PreparedStatement;
 import java.sql.ResultSet;
 import java.sql.SQLException;
 import java.util.*;
-import java.util.stream.Collectors;
 
 public class ItemBankManager implements Listener {
     private static class OpenedBank {
@@ -164,10 +161,11 @@ public class ItemBankManager implements Listener {
 
         Inventory bankInventory = Bukkit.createInventory(player, bankSize, inventoryTitle);
         bankInventory.setContents(playerBanks.get(player.getUniqueId()).get(bankId));
-        openBanks.put(player.getUniqueId(), new OpenedBank(bankId, bankInventory, block.getLocation()));
+        Location location = block.getLocation().add(0.5, 1.0, 0.5);
+        openBanks.put(player.getUniqueId(), new OpenedBank(bankId, bankInventory, location));
 
         player.openInventory(bankInventory);
-        player.playSound(block.getLocation(), Sound.BLOCK_ENDER_CHEST_OPEN, 0.5f, 1.0f);
+        player.playSound(location, Sound.BLOCK_ENDER_CHEST_OPEN, 0.5f, 1.0f);
     }
 
     private void closeChest(Player player, OpenedBank bank) {
@@ -196,18 +194,8 @@ public class ItemBankManager implements Listener {
         return playerBanks.get(player.getUniqueId()).containsKey(bankId);
     }
 
-    private boolean isBlockValidChest(Block block) {
-        if (block == null) {
-            return false;
-        }
-        if (block.getType() != Material.CHEST) {
-            return false;
-        }
-        return block.getState() instanceof Chest;
-    }
-
     private String getBankId(Block block) {
-        if (!isBlockValidChest(block)) {
+        if (!ChestDataHelper.isBlockValidChest(block)) {
             return null;
         }
         Chest chest = (Chest)block.getState();
@@ -227,7 +215,7 @@ public class ItemBankManager implements Listener {
     }
 
     private boolean setBlockAsBank(Block block, String id, int size, int price) {
-        if (!isBlockValidChest(block)) {
+        if (!ChestDataHelper.isBlockValidChest(block)) {
             return false;
         }
         Chest chest = (Chest)block.getState();
@@ -253,7 +241,7 @@ public class ItemBankManager implements Listener {
                     }
 
                     try {
-                        ItemStack[] stacks = ItemStackSerializer.deserializeStacks(bankContent);
+                        ItemStack[] stacks = BukkitSerializer.deserialize(bankContent);
                         playerBanks.get(playerId).put(bankId, stacks);
                     } catch (Exception e) {
                         plugin.getLogger().warning("Could not deserialize bank (" + playerId + ", " + bankId + ")");
@@ -273,7 +261,7 @@ public class ItemBankManager implements Listener {
         byte[] bankContent;
 
         try {
-            bankContent = ItemStackSerializer.serializeStacks(stacks);
+            bankContent = BukkitSerializer.serialize(stacks);
         } catch (IOException e) {
             plugin.getLogger().warning("Could not serialize bank (" + playerId + ", " + bankId + ")");
             e.printStackTrace();

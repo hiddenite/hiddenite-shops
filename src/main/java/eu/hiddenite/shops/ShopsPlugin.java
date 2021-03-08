@@ -2,7 +2,9 @@ package eu.hiddenite.shops;
 
 import eu.hiddenite.shops.bank.ItemBankManager;
 import eu.hiddenite.shops.casino.CasinoManager;
+import eu.hiddenite.shops.commands.SellCommand;
 import eu.hiddenite.shops.commands.ShopCommand;
+import eu.hiddenite.shops.market.MarketManager;
 import eu.hiddenite.shops.shipping.ShippingBoxManager;
 import org.bukkit.command.PluginCommand;
 import org.bukkit.entity.Player;
@@ -16,6 +18,7 @@ public class ShopsPlugin extends JavaPlugin {
 
     private ShippingBoxManager shippingBoxManager;
     private ItemBankManager itemBankManager;
+    private MarketManager marketManager;
 
     @Override
     public void onEnable() {
@@ -31,11 +34,17 @@ public class ShopsPlugin extends JavaPlugin {
 
         shippingBoxManager = new ShippingBoxManager(this);
         itemBankManager = new ItemBankManager(this);
+        marketManager = new MarketManager(this);
         new CasinoManager(this);
 
         PluginCommand shopCommand = getCommand("shop");
         if (shopCommand != null) {
             shopCommand.setExecutor(new ShopCommand(this));
+        }
+
+        PluginCommand sellCommand = getCommand("sell");
+        if (sellCommand != null) {
+            sellCommand.setExecutor(new SellCommand(this));
         }
     }
 
@@ -58,6 +67,7 @@ public class ShopsPlugin extends JavaPlugin {
     @Override
     public void onDisable() {
         itemBankManager.close();
+        marketManager.close();
         database.close();
     }
 
@@ -75,5 +85,9 @@ public class ShopsPlugin extends JavaPlugin {
 
     public ItemBankManager getItemBankManager() {
         return itemBankManager;
+    }
+
+    public MarketManager getMarketManager() {
+        return marketManager;
     }
 }

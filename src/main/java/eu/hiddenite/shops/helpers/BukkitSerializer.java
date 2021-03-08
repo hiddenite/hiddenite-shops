@@ -1,6 +1,5 @@
 package eu.hiddenite.shops.helpers;
 
-import org.bukkit.inventory.ItemStack;
 import org.bukkit.util.io.BukkitObjectInputStream;
 import org.bukkit.util.io.BukkitObjectOutputStream;
 
@@ -8,19 +7,20 @@ import java.io.ByteArrayInputStream;
 import java.io.ByteArrayOutputStream;
 import java.io.IOException;
 
-public class ItemStackSerializer {
-    public static byte[] serializeStacks(ItemStack[] stack) throws IOException {
+public class BukkitSerializer {
+    public static byte[] serialize(Object object) throws IOException {
         ByteArrayOutputStream outputStream = new ByteArrayOutputStream();
         try (BukkitObjectOutputStream dataOutput = new BukkitObjectOutputStream(outputStream)) {
-            dataOutput.writeObject(stack);
+            dataOutput.writeObject(object);
         }
         return outputStream.toByteArray();
     }
 
-    public static ItemStack[] deserializeStacks(byte[] data) throws IOException, ClassNotFoundException {
+    @SuppressWarnings("unchecked")
+    public static <T> T deserialize(byte[] data) throws IOException, ClassNotFoundException {
         ByteArrayInputStream inputStream = new ByteArrayInputStream(data);
         try (BukkitObjectInputStream dataInput = new BukkitObjectInputStream(inputStream)) {
-            return (ItemStack[]) dataInput.readObject();
+            return (T)dataInput.readObject();
         }
     }
 }
