@@ -128,6 +128,7 @@ public class MarketManager implements Listener {
 
         player.getInventory().setItemInMainHand(null);
         itemsForSale.add(new MarketItem(marketItemId, player.getUniqueId(), price, item));
+        player.playSound(player.getLocation(), Sound.ENTITY_PLAYER_LEVELUP, 0.3f, 1.1f);
     }
 
     public void createMarketChest(Player player, boolean isCancel) {
@@ -409,12 +410,14 @@ public class MarketManager implements Listener {
     private void buyItem(Player player, MarketItem marketItem) {
         int slot = player.getInventory().firstEmpty();
         if (slot == -1) {
+            player.playSound(player.getLocation(), Sound.ENTITY_PLAYER_HURT_SWEET_BERRY_BUSH, 0.5f, 1.2f);
             plugin.sendMessage(player, "market.messages.buy-no-space");
             return;
         }
 
         Economy.ResultType result = plugin.getEconomy().removeMoney(player.getUniqueId(), marketItem.price);
         if (result == Economy.ResultType.NOT_ENOUGH_MONEY) {
+            player.playSound(player.getLocation(), Sound.ENTITY_PLAYER_HURT_SWEET_BERRY_BUSH, 0.5f, 1.2f);
             plugin.sendMessage(player, "market.messages.buy-not-enough-money");
             return;
         }
@@ -454,6 +457,8 @@ public class MarketManager implements Listener {
                 "{QUANTITY}", marketItem.itemStack.getAmount(),
                 "{MATERIAL}", marketItem.itemStack.getType().name(),
                 "{PRICE}", plugin.getEconomy().format(marketItem.price));
+
+        player.playSound(player.getLocation(), Sound.ENTITY_PLAYER_LEVELUP, 0.3f, 1.1f);
 
         if (seller != null) {
             plugin.sendMessage(seller, "market.messages.sold-notification",
