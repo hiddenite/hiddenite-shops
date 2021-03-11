@@ -78,7 +78,7 @@ public class ShopCommand implements CommandExecutor, TabCompleter {
                                       @Nonnull final String alias,
                                       @Nonnull final String[] args) {
         if (args.length == 1) {
-            return Arrays.asList("create-shipping-box", "create-market", "create-bank-chest");
+            return Arrays.asList("create-shipping-box", "create-market", "create-market-cancel", "create-bank-chest");
         }
         if (args.length > 1 && args[0].equals("create-bank-chest")) {
             if (args.length == 2) {

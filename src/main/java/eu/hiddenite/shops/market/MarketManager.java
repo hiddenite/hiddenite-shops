@@ -97,7 +97,6 @@ public class MarketManager implements Listener {
         if (player.getWorld() != marketLocation.getWorld() ||
                 player.getLocation().distance(marketLocation) > marketLocationRadius
         ) {
-            player.sendMessage("d = " + player.getLocation().distance(marketLocation));
             plugin.sendMessage(player, "market.messages.sell-too-far");
             return;
         }
