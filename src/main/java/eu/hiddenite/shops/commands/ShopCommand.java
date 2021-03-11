@@ -35,24 +35,18 @@ public class ShopCommand implements CommandExecutor, TabCompleter {
         }
 
         if (args[0].equals("create-shipping-box")) {
-            createShippingBox(player);
+            plugin.getShippingBoxManager().createShippingBox(player);
         } else if (args[0].equals("create-market")) {
-            createMarketChest(player);
-        }  else if (args[0].equals("create-bank-chest")) {
+            plugin.getMarketManager().createMarketChest(player, false);
+        } else if (args[0].equals("create-market-cancel")) {
+            plugin.getMarketManager().createMarketChest(player, true);
+        } else if (args[0].equals("create-bank-chest")) {
             createBankChest(player, args);
         } else {
             sender.sendMessage("Invalid subcommand: " + args[0]);
         }
 
         return true;
-    }
-
-    private void createShippingBox(Player player) {
-        plugin.getShippingBoxManager().createShippingBox(player);
-    }
-
-    private void createMarketChest(Player player) {
-        plugin.getMarketManager().createMarketChest(player);
     }
 
     private void createBankChest(Player player, String[] args) {

@@ -34,9 +34,25 @@ item-bank:
     purchase-error: "An unexpected error occurred, try again later."
 
 market:
+  title: "Market"
+  price-tag: "Price: ${PRICE}"
+  buttons:
+    left: "Left"
+    right: "Right"
+    page: "Page {PAGE}/{TOTAL}"
+  location:
+    world: "world"
+    pos: [10, 64, 10]
+    radius: 50
   messages:
     sell-usage: "/sell <price>"
-    sell-error: "An unexpected error occurred, try again later."
+    sell-success: "You've put {QUANTITY}x{MATERIAL} for sale at ${PRICE}."
+    sold-notification: "You've sold {QUANTITY}x{MATERIAL} at ${PRICE}."
     invalid-price: "Invalid price: {PRICE}"
     invalid-item: "You must select an item to sell."
-    invalid-place: "You must be near the market to sell something."
+    sell-too-far: "You must be near the market to sell something."
+    buy-success: "You've purchased {QUANTITY}x{MATERIAL} at ${PRICE}."
+    buy-not-enough-money: "You don't have enough money."
+    buy-too-late: "Too late, this item is no longer for sale."
+    buy-no-space: "Your inventory is full."
+    sql-error: "An unexpected error occurred, try again later."

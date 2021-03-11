@@ -1,6 +1,7 @@
 package eu.hiddenite.shops.market;
 
 import eu.hiddenite.shops.Database;
+import eu.hiddenite.shops.Economy;
 import eu.hiddenite.shops.ShopsPlugin;
 import eu.hiddenite.shops.helpers.BukkitSerializer;
 import eu.hiddenite.shops.helpers.ChestDataHelper;
@@ -8,10 +9,12 @@ import org.bukkit.*;
 import org.bukkit.block.Block;
 import org.bukkit.entity.Player;
 import org.bukkit.event.EventHandler;
+import org.bukkit.event.EventPriority;
 import org.bukkit.event.Listener;
 import org.bukkit.event.block.Action;
 import org.bukkit.event.inventory.*;
 import org.bukkit.event.player.PlayerInteractEvent;
+import org.bukkit.event.player.PlayerJoinEvent;
 import org.bukkit.inventory.Inventory;
 import org.bukkit.inventory.InventoryHolder;
 import org.bukkit.inventory.ItemStack;
@@ -41,8 +44,9 @@ public class MarketManager implements Listener {
 
     private static class OpenMarket {
         private Location location;
-
         private Inventory inventory;
+
+        private boolean isViewingCurrentSales = false;
         private Material selectedMaterial = null;
         private List<Integer> shownItems = null;
 
@@ -52,17 +56,30 @@ public class MarketManager implements Listener {
 
     private final ShopsPlugin plugin;
     private final List<MarketItem> itemsForSale = new ArrayList<>();
+    private final List<MarketItem> pendingNotifications = new ArrayList<>();
     private final Map<UUID, OpenMarket> openedMarkets = new HashMap<>();
     private final NamespacedKey marketChestKey;
+    private final NamespacedKey marketCancelChestKey;
+
+    private final Location marketLocation;
+    private final double marketLocationRadius;
 
     public MarketManager(ShopsPlugin plugin) {
         this.plugin = plugin;
 
         marketChestKey = new NamespacedKey(plugin, "market-chest");
+        marketCancelChestKey = new NamespacedKey(plugin, "market-cancel-chest");
 
         loadMarketFromDatabase();
 
         plugin.getServer().getPluginManager().registerEvents(this, plugin);
+
+        List<Double> pos = plugin.getConfig().getDoubleList("market.location.pos");
+        marketLocation = new Location(
+                Bukkit.getWorld(Objects.toString(plugin.getConfig().getString("market.location.world"), "world")),
+                pos.get(0), pos.get(1), pos.get(2)
+        );
+        marketLocationRadius = plugin.getConfig().getDouble("market.location.radius");
     }
 
     public void close() {
@@ -77,6 +94,14 @@ public class MarketManager implements Listener {
     }
 
     public void sellItem(Player player, long price) {
+        if (player.getWorld() != marketLocation.getWorld() ||
+                player.getLocation().distance(marketLocation) > marketLocationRadius
+        ) {
+            player.sendMessage("d = " + player.getLocation().distance(marketLocation));
+            plugin.sendMessage(player, "market.messages.sell-too-far");
+            return;
+        }
+
         ItemStack item = player.getInventory().getItemInMainHand();
 
         int marketItemId;
@@ -91,20 +116,25 @@ public class MarketManager implements Listener {
             marketItemId = Database.getGeneratedId(ps);
         } catch (Exception e) {
             e.printStackTrace();
-            plugin.sendMessage(player, "market.messages.sell-error");
+            plugin.sendMessage(player, "market.messages.sql-error");
             return;
         }
 
         plugin.getLogger().info("[Market] Created market item " + marketItemId + ": " + item.getType() + "x" + item.getAmount());
 
+        plugin.sendMessage(player, "market.messages.sell-success",
+                "{QUANTITY}", item.getAmount(),
+                "{MATERIAL}", item.getType().name(),
+                "{PRICE}", plugin.getEconomy().format(price));
+
         player.getInventory().setItemInMainHand(null);
         itemsForSale.add(new MarketItem(marketItemId, player.getUniqueId(), price, item));
     }
 
-    public void createMarketChest(Player player) {
+    public void createMarketChest(Player player, boolean isCancel) {
         Block block = player.getTargetBlock(10);
-        if (ChestDataHelper.setBlockChestType(block, marketChestKey)) {
-            player.sendMessage("Done, the chest is now a market chest.");
+        if (ChestDataHelper.setBlockChestType(block, isCancel ? marketCancelChestKey : marketChestKey)) {
+            player.sendMessage("Done, the chest is now a " + (isCancel ? "cancellation" : "market") + " chest.");
         } else {
             player.sendMessage("Fail, please target a valid chest.");
         }
@@ -117,24 +147,35 @@ public class MarketManager implements Listener {
         }
 
         Block block = event.getClickedBlock();
-        if (block == null || !ChestDataHelper.isBlockChestType(block, marketChestKey)) {
+        if (block == null ||
+                (!ChestDataHelper.isBlockChestType(block, marketChestKey)
+                        && !ChestDataHelper.isBlockChestType(block, marketCancelChestKey))) {
             return;
         }
 
         event.setCancelled(true);
         Player player = event.getPlayer();
 
-        Inventory inventory = Bukkit.createInventory(player, 54, "Market");
+        Inventory inventory = Bukkit.createInventory(player, 54, plugin.getMessage("market.title"));
 
         OpenMarket openMarket = new OpenMarket();
         openMarket.location = block.getLocation().add(0.5, 1.0, 0.5);
         openMarket.inventory = inventory;
         openedMarkets.put(player.getUniqueId(), openMarket);
 
-        loadMarketHome(openMarket, 1);
+        if (ChestDataHelper.isBlockChestType(block, marketChestKey)) {
+            loadMarketHome(openMarket, 1);
+        } else {
+            loadMarketSales(player, openMarket, 1);
+        }
 
         player.openInventory(inventory);
         player.playSound(openMarket.location, Sound.BLOCK_CHEST_OPEN, 0.5f, 1.0f);
+    }
+
+    @EventHandler(ignoreCancelled = true, priority = EventPriority.MONITOR)
+    public void onPlayerInteract(final PlayerJoinEvent event) {
+        sendPendingNotifications(event.getPlayer());
     }
 
     @EventHandler(ignoreCancelled = true)
@@ -157,23 +198,33 @@ public class MarketManager implements Listener {
             }
 
             if (event.getSlot() < 45) {
-                if (openMarket.selectedMaterial == null) {
+                if (openMarket.selectedMaterial == null && !openMarket.isViewingCurrentSales) {
                     loadMarketPage(openMarket, event.getCurrentItem().getType(), 1);
                 } else {
                     int marketItemId = openMarket.shownItems.get(event.getSlot());
                     MarketItem marketItem = itemsForSale.stream().filter(x -> x.id == marketItemId).findAny().orElse(null);
 
-                    if (marketItem != null) {
-                        player.sendMessage("purchasing " + marketItem.itemStack.getType().name() + " at " + marketItem.price + " from " + marketItem.sellerId);
+                    if (openMarket.isViewingCurrentSales) {
+                        if (marketItem != null) {
+                            cancelSale(player, marketItem);
+                        }
+                        loadMarketSales(player, openMarket, openMarket.currentPage);
                     } else {
-                        // Too late, no longer for sale.
+                        if (marketItem != null) {
+                            buyItem(player, marketItem);
+                        } else {
+                            plugin.sendMessage(player, "market.messages.buy-too-late");
+                        }
+                        loadMarketPage(openMarket, openMarket.selectedMaterial, openMarket.currentPage);
                     }
                 }
             } else if (event.getSlot() == 48) {
                 if (openMarket.currentPage > 1) {
                     openMarket.currentPage -= 1;
                 }
-                if (openMarket.selectedMaterial == null) {
+                if (openMarket.isViewingCurrentSales) {
+                    loadMarketSales(player, openMarket, openMarket.currentPage);
+                } else if (openMarket.selectedMaterial == null) {
                     loadMarketHome(openMarket, openMarket.currentPage);
                 } else {
                     loadMarketPage(openMarket, openMarket.selectedMaterial, openMarket.currentPage);
@@ -182,7 +233,9 @@ public class MarketManager implements Listener {
                 if (openMarket.currentPage < openMarket.totalPages) {
                     openMarket.currentPage += 1;
                 }
-                if (openMarket.selectedMaterial == null) {
+                if (openMarket.isViewingCurrentSales) {
+                    loadMarketSales(player, openMarket, openMarket.currentPage);
+                } else if (openMarket.selectedMaterial == null) {
                     loadMarketHome(openMarket, openMarket.currentPage);
                 } else {
                     loadMarketPage(openMarket, openMarket.selectedMaterial, openMarket.currentPage);
@@ -211,7 +264,7 @@ public class MarketManager implements Listener {
     }
 
     private void loadMarketHome(OpenMarket openMarket, int page) {
-        Set<Material> materialsForSale = getMaterialsForSale();
+        List<Material> materialsForSale = getMaterialsForSale();
 
         ItemStack[] content = materialsForSale
                 .stream()
@@ -229,38 +282,62 @@ public class MarketManager implements Listener {
         createPageButtons(openMarket);
     }
 
-    private void createPageButtons(OpenMarket openMarket) {
-        if (openMarket.totalPages > 1) {
-            ItemStack leftArrow = new ItemStack(Material.ARROW);
-            ItemMeta meta = leftArrow.getItemMeta();
-            meta.setDisplayName("Left");
-            leftArrow.setItemMeta(meta);
-            openMarket.inventory.setItem(48, leftArrow);
+    private void loadMarketSales(Player player, OpenMarket openMarket, int page) {
+        List<MarketItem> allItems = getItemsSoldByPlayer(player);
 
-            ItemStack currentPage = new ItemStack(Material.PAPER);
-            meta = currentPage.getItemMeta();
-            meta.setDisplayName("Page " + openMarket.currentPage + "/" + openMarket.totalPages);
-            currentPage.setItemMeta(meta);
-            openMarket.inventory.setItem(49, currentPage);
-
-            ItemStack rightArrow = new ItemStack(Material.ARROW);
-            meta = rightArrow.getItemMeta();
-            meta.setDisplayName("Right");
-            rightArrow.setItemMeta(meta);
-            openMarket.inventory.setItem(50, rightArrow);
+        while (page > 1 && (page - 1) * 45 >= allItems.size()) {
+            page -= 1;
         }
+
+        List<MarketItem> items = allItems.stream().skip((page - 1) * 45).limit(45).collect(Collectors.toList());
+
+        openMarket.inventory.setContents(items.stream().map(x -> {
+            ItemStack stack = x.itemStack.clone();
+
+            List<String> lore = new ArrayList<>();
+            lore.add(plugin.formatMessage("market.price-tag",
+                    "{PRICE}", plugin.getEconomy().format(x.price))
+            );
+            stack.setLore(lore);
+
+            return stack;
+        }).toArray(ItemStack[]::new));
+
+        openMarket.isViewingCurrentSales = true;
+        openMarket.currentPage = page;
+        openMarket.totalPages = (int)Math.ceil((double)allItems.size() / 45.0);
+        openMarket.shownItems = items.stream().map(x -> x.id).collect(Collectors.toList());
+        openMarket.selectedMaterial = null;
+
+        createPageButtons(openMarket);
     }
 
     private void loadMarketPage(OpenMarket openMarket, Material material, int page) {
         Inventory inventory = openMarket.inventory;
-        inventory.clear();
-
-        openMarket.selectedMaterial = material;
 
         List<MarketItem> itemsFromThisCategory = getItemsForSale(material);
+
+        if (itemsFromThisCategory.size() == 0) {
+            loadMarketHome(openMarket, 1);
+            return;
+        }
+
+        while (page > 1 && (page - 1) * 45 >= itemsFromThisCategory.size()) {
+            page -= 1;
+        }
+
+        openMarket.selectedMaterial = material;
         List<MarketItem> items = itemsFromThisCategory
                 .stream()
-                .sorted((a, b) -> b.id - a.id)
+                .sorted((a, b) -> {
+                    double pricePerItemA = (double)a.price / a.itemStack.getAmount();
+                    double pricePerItemB = (double)b.price / b.itemStack.getAmount();
+                    if (pricePerItemA != pricePerItemB) {
+                        return Double.compare(pricePerItemA, pricePerItemB);
+                    } else {
+                        return b.id - a.id;
+                    }
+                })
                 .skip((page - 1) * 45)
                 .limit(45)
                 .collect(Collectors.toList());
@@ -270,10 +347,11 @@ public class MarketManager implements Listener {
             ItemStack stack = x.itemStack.clone();
 
             List<String> lore = new ArrayList<>();
-
-            lore.add("Price: " + plugin.getEconomy().format(x.price) + " C$");
-
+            lore.add(plugin.formatMessage("market.price-tag",
+                    "{PRICE}", plugin.getEconomy().format(x.price))
+            );
             stack.setLore(lore);
+
             return stack;
         }).toArray(ItemStack[]::new));
 
@@ -283,19 +361,138 @@ public class MarketManager implements Listener {
         createPageButtons(openMarket);
     }
 
-    private Set<Material> getMaterialsForSale() {
-        return itemsForSale.stream().map(x -> x.itemStack.getType()).collect(Collectors.toSet());
+    private void createPageButtons(OpenMarket openMarket) {
+        if (openMarket.totalPages > 1) {
+            ItemStack leftArrow = new ItemStack(Material.ARROW);
+            ItemMeta meta = leftArrow.getItemMeta();
+            meta.setDisplayName(plugin.formatMessage("market.buttons.left"));
+            leftArrow.setItemMeta(meta);
+            openMarket.inventory.setItem(48, leftArrow);
+
+            ItemStack currentPage = new ItemStack(Material.PAPER);
+            meta = currentPage.getItemMeta();
+            meta.setDisplayName(plugin.formatMessage(
+                    "market.buttons.page",
+                    "{PAGE}", openMarket.currentPage,
+                    "{TOTAL}", openMarket.totalPages
+            ));
+            currentPage.setItemMeta(meta);
+            openMarket.inventory.setItem(49, currentPage);
+
+            ItemStack rightArrow = new ItemStack(Material.ARROW);
+            meta = rightArrow.getItemMeta();
+            meta.setDisplayName(plugin.formatMessage("market.buttons.right"));
+            rightArrow.setItemMeta(meta);
+            openMarket.inventory.setItem(50, rightArrow);
+        }
+    }
+
+    private List<Material> getMaterialsForSale() {
+        return itemsForSale.stream()
+                .map(x -> x.itemStack.getType())
+                .distinct()
+                .sorted(Comparator.comparing(Enum::name))
+                .collect(Collectors.toList());
     }
 
     private List<MarketItem> getItemsForSale(Material material) {
-        return itemsForSale.stream().filter(x -> x.itemStack.getType() == material).collect(Collectors.toList());
+        return itemsForSale.stream()
+                .filter(x -> x.itemStack.getType() == material)
+                .collect(Collectors.toList());
+    }
+
+    private List<MarketItem> getItemsSoldByPlayer(Player player) {
+        return itemsForSale.stream()
+                .filter(x -> x.sellerId.equals(player.getUniqueId()))
+                .collect(Collectors.toList());
+    }
+
+    private void buyItem(Player player, MarketItem marketItem) {
+        int slot = player.getInventory().firstEmpty();
+        if (slot == -1) {
+            plugin.sendMessage(player, "market.messages.buy-no-space");
+            return;
+        }
+
+        Economy.ResultType result = plugin.getEconomy().removeMoney(player.getUniqueId(), marketItem.price);
+        if (result == Economy.ResultType.NOT_ENOUGH_MONEY) {
+            plugin.sendMessage(player, "market.messages.buy-not-enough-money");
+            return;
+        }
+        if (result != Economy.ResultType.SUCCESS) {
+            plugin.sendMessage(player, "market.messages.sql-error");
+            return;
+        }
+
+        result = plugin.getEconomy().addMoney(marketItem.sellerId, marketItem.price);
+        if (result != Economy.ResultType.SUCCESS) {
+            plugin.sendMessage(player, "market.messages.sql-error");
+            return;
+        }
+
+        Player seller = Bukkit.getPlayer(marketItem.sellerId);
+
+        try (PreparedStatement ps = plugin.getDatabase().prepareStatement(
+                "UPDATE market_items SET was_sold = 1, was_notified = ? WHERE id = ?"
+        )) {
+            ps.setBoolean(1, seller != null);
+            ps.setInt(2, marketItem.id);
+            ps.executeUpdate();
+        } catch (SQLException e) {
+            e.printStackTrace();
+            plugin.sendMessage(player, "market.messages.sql-error");
+            return;
+        }
+
+        itemsForSale.remove(marketItem);
+        pendingNotifications.add(marketItem);
+
+        player.getInventory().setItem(slot, marketItem.itemStack);
+
+        plugin.getLogger().info("[Market] Sold market item " + marketItem.id + ": " + marketItem.itemStack.getType() + "x" + marketItem.itemStack.getAmount());
+
+        plugin.sendMessage(player, "market.messages.buy-success",
+                "{QUANTITY}", marketItem.itemStack.getAmount(),
+                "{MATERIAL}", marketItem.itemStack.getType().name(),
+                "{PRICE}", plugin.getEconomy().format(marketItem.price));
+
+        if (seller != null) {
+            plugin.sendMessage(seller, "market.messages.sold-notification",
+                    "{QUANTITY}", marketItem.itemStack.getAmount(),
+                    "{MATERIAL}", marketItem.itemStack.getType().name(),
+                    "{PRICE}", plugin.getEconomy().format(marketItem.price));
+        }
+    }
+
+    private void cancelSale(Player player, MarketItem marketItem) {
+        int slot = player.getInventory().firstEmpty();
+        if (slot == -1) {
+            plugin.sendMessage(player, "market.messages.buy-no-space");
+            return;
+        }
+
+        try (PreparedStatement ps = plugin.getDatabase().prepareStatement(
+                "DELETE FROM market_items WHERE id = ?"
+        )) {
+            ps.setInt(1, marketItem.id);
+            ps.executeUpdate();
+        } catch (SQLException e) {
+            e.printStackTrace();
+            plugin.sendMessage(player, "market.messages.sql-error");
+            return;
+        }
+        itemsForSale.remove(marketItem);
+
+        player.getInventory().setItem(slot, marketItem.itemStack);
+
+        plugin.getLogger().info("[Market] Deleted market item " + marketItem.id + ": " + marketItem.itemStack.getType() + "x" + marketItem.itemStack.getAmount());
     }
 
     private void loadMarketFromDatabase() {
         itemsForSale.clear();
 
         try (PreparedStatement ps = plugin.getDatabase().prepareStatement(
-                "SELECT id, seller_id, price, item_data FROM market_items WHERE was_sold = 0"
+                "SELECT id, seller_id, price, item_data, was_sold, was_notified FROM market_items WHERE was_sold = 0 OR was_notified = 0"
         )) {
             try (ResultSet rs = ps.executeQuery()) {
                 while (rs.next()) {
@@ -303,10 +500,17 @@ public class MarketManager implements Listener {
                     UUID sellerId = UUID.fromString(rs.getString(2));
                     long price = rs.getLong(3);
                     byte[] itemData = rs.getBytes(4);
+                    boolean wasSold = rs.getBoolean(5);
+                    boolean wasNotified = rs.getBoolean(6);
 
                     try {
                         ItemStack item = BukkitSerializer.deserialize(itemData);
-                        itemsForSale.add(new MarketItem(id, sellerId, price, item));
+                        MarketItem marketItem = new MarketItem(id, sellerId, price, item);
+                        if (!wasSold) {
+                            itemsForSale.add(marketItem);
+                        } else if (!wasNotified) {
+                            pendingNotifications.add(marketItem);
+                        }
                     } catch (Exception e) {
                         plugin.getLogger().warning("[Market] Could not deserialize market item " + id);
                         e.printStackTrace();
@@ -319,5 +523,33 @@ public class MarketManager implements Listener {
             plugin.getLogger().warning("[Market] Could not load banks!");
             e.printStackTrace();
         }
+    }
+
+    private void sendPendingNotifications(Player player) {
+        List<MarketItem> pending = pendingNotifications.stream()
+                .filter(x -> x.sellerId.equals(player.getUniqueId()))
+                .collect(Collectors.toList());
+
+        if (pending.size() == 0) {
+            return;
+        }
+
+        for (MarketItem marketItem : pending) {
+            plugin.sendMessage(player, "market.messages.sold-notification",
+                    "{QUANTITY}", marketItem.itemStack.getAmount(),
+                    "{MATERIAL}", marketItem.itemStack.getType().name(),
+                    "{PRICE}", plugin.getEconomy().format(marketItem.price));
+        }
+
+        try (PreparedStatement ps = plugin.getDatabase().prepareStatement(
+                "UPDATE market_items SET was_notified = 1 WHERE seller_id = ? AND was_sold = 1"
+        )) {
+            ps.setString(1, player.getUniqueId().toString());
+            ps.executeUpdate();
+        } catch (SQLException e) {
+            e.printStackTrace();
+        }
+
+        pendingNotifications.removeAll(pending);
     }
 }
