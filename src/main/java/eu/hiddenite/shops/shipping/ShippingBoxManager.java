@@ -54,6 +54,10 @@ public class ShippingBoxManager implements Listener {
         return plugin;
     }
 
+    public String getTranslatedName(Material material) {
+        return translatedNames.getOrDefault(material, material.name());
+    }
+
     private void loadPrices() {
         try (PreparedStatement ps = plugin.getDatabase().prepareStatement(
                 "SELECT material_name, french_name, price, rarity FROM shipping_box_prices ORDER BY material_name"

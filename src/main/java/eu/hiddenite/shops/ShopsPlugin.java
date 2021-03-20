@@ -6,6 +6,7 @@ import eu.hiddenite.shops.commands.SellCommand;
 import eu.hiddenite.shops.commands.ShopCommand;
 import eu.hiddenite.shops.market.MarketManager;
 import eu.hiddenite.shops.shipping.ShippingBoxManager;
+import org.bukkit.Material;
 import org.bukkit.command.PluginCommand;
 import org.bukkit.entity.Player;
 import org.bukkit.plugin.java.JavaPlugin;
@@ -62,6 +63,14 @@ public class ShopsPlugin extends JavaPlugin {
 
     public void sendMessage(Player player, String key, Object... parameters) {
         player.sendMessage(formatMessage(key, parameters));
+    }
+
+    public String getTranslatedName(Material material) {
+        return shippingBoxManager.getTranslatedName(material);
+    }
+
+    public String getTranslatedNameLower(Material material) {
+        return getTranslatedName(material).toLowerCase();
     }
 
     @Override

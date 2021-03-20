@@ -80,6 +80,8 @@ public class MarketManager implements Listener {
                 pos.get(0), pos.get(1), pos.get(2)
         );
         marketLocationRadius = plugin.getConfig().getDouble("market.location.radius");
+
+        plugin.getLogger().info("Market location: " + marketLocation + " " + marketLocationRadius);
     }
 
     public void close() {
@@ -98,6 +100,7 @@ public class MarketManager implements Listener {
                 player.getLocation().distance(marketLocation) > marketLocationRadius
         ) {
             plugin.sendMessage(player, "market.messages.sell-too-far");
+            plugin.sendMessage(player, player.getWorld().getName() + player.getLocation().distance(marketLocation));
             return;
         }
 
@@ -123,7 +126,7 @@ public class MarketManager implements Listener {
 
         plugin.sendMessage(player, "market.messages.sell-success",
                 "{QUANTITY}", item.getAmount(),
-                "{MATERIAL}", item.getType().name(),
+                "{MATERIAL}", plugin.getTranslatedNameLower(item.getType()),
                 "{PRICE}", plugin.getEconomy().format(price));
 
         player.getInventory().setItemInMainHand(null);
@@ -455,7 +458,7 @@ public class MarketManager implements Listener {
 
         plugin.sendMessage(player, "market.messages.buy-success",
                 "{QUANTITY}", marketItem.itemStack.getAmount(),
-                "{MATERIAL}", marketItem.itemStack.getType().name(),
+                "{MATERIAL}", plugin.getTranslatedNameLower(marketItem.itemStack.getType()),
                 "{PRICE}", plugin.getEconomy().format(marketItem.price));
 
         player.playSound(player.getLocation(), Sound.ENTITY_PLAYER_LEVELUP, 0.3f, 1.1f);
@@ -463,7 +466,7 @@ public class MarketManager implements Listener {
         if (seller != null) {
             plugin.sendMessage(seller, "market.messages.sold-notification",
                     "{QUANTITY}", marketItem.itemStack.getAmount(),
-                    "{MATERIAL}", marketItem.itemStack.getType().name(),
+                    "{MATERIAL}", plugin.getTranslatedNameLower(marketItem.itemStack.getType()),
                     "{PRICE}", plugin.getEconomy().format(marketItem.price));
         }
     }
@@ -541,7 +544,7 @@ public class MarketManager implements Listener {
         for (MarketItem marketItem : pending) {
             plugin.sendMessage(player, "market.messages.sold-notification",
                     "{QUANTITY}", marketItem.itemStack.getAmount(),
-                    "{MATERIAL}", marketItem.itemStack.getType().name(),
+                    "{MATERIAL}", plugin.getTranslatedNameLower(marketItem.itemStack.getType()),
                     "{PRICE}", plugin.getEconomy().format(marketItem.price));
         }
 
