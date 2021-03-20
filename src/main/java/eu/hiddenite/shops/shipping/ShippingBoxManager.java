@@ -259,13 +259,7 @@ public class ShippingBoxManager implements Listener {
             if (event.getRawSlot() < event.getInventory().getSize()) {
                 ItemStack stack = event.getCursor();
                 if (stack != null) {
-                    if (!prices.containsKey(stack.getType())) {
-                        sendNotForSaleMessage(player, stack.getType());
-                        event.setCancelled(true);
-                        return;
-                    }
-                    if (stack.getEnchantments().size() > 0) {
-                        sendNotForSaleMessage(player, stack.getType());
+                    if (!checkIfItemForSale(player, stack)) {
                         event.setCancelled(true);
                         return;
                     }
@@ -275,13 +269,7 @@ public class ShippingBoxManager implements Listener {
             if (event.getRawSlot() >= event.getInventory().getSize()) {
                 ItemStack stack = event.getCurrentItem();
                 if (stack != null) {
-                    if (!prices.containsKey(stack.getType())) {
-                        sendNotForSaleMessage(player, stack.getType());
-                        event.setCancelled(true);
-                        return;
-                    }
-                    if (stack.getEnchantments().size() > 0) {
-                        sendNotForSaleMessage(player, stack.getType());
+                    if (!checkIfItemForSale(player, stack)) {
                         event.setCancelled(true);
                         return;
                     }
@@ -318,8 +306,7 @@ public class ShippingBoxManager implements Listener {
             if (stack == null || stack.getType() == Material.AIR) {
                 continue;
             }
-            if (!prices.containsKey(stack.getType())) {
-                sendNotForSaleMessage(player, stack.getType());
+            if (!checkIfItemForSale(player, stack)) {
                 event.setCancelled(true);
                 return;
             }
@@ -394,11 +381,18 @@ public class ShippingBoxManager implements Listener {
         return shippingBox;
     }
 
-    private void sendNotForSaleMessage(Player player, Material material) {
-        String notForSaleMessage = config.getString("shipping-box.messages.not-for-sale");
-        if (notForSaleMessage != null) {
-            notForSaleMessage = notForSaleMessage.replace("{ITEM_NAME}", material.name());
-            player.sendMessage(notForSaleMessage);
+    private boolean checkIfItemForSale(Player player, ItemStack stack) {
+        if (prices.getOrDefault(stack.getType(), 0) == 0) {
+            plugin.sendMessage(
+                    player, "shipping-box.messages.not-for-sale",
+                    "{ITEM_NAME}", plugin.getTranslatedNameLower(stack.getType())
+            );
+            return false;
         }
+        if (stack.getEnchantments().size() > 0) {
+            plugin.sendMessage(player, "shipping-box.messages.cant-sell-enchant");
+            return false;
+        }
+        return true;
     }
 }

@@ -14,6 +14,7 @@ shipping-box:
     open-message: "Drop the items you want to sell in this box!"
     sold-message: "Sold {ITEM_COUNT} item{ITEM_COUNT_PLURAL_1} for {TOTAL_PRICE} $."
     not-for-sale: "You can't sell {ITEM_NAME} through this box."
+    cant-sell-enchant: "You can't sell enchanted items."
   item-of-the-day:
     signs:
       1:
