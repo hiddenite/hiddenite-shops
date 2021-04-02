@@ -34,16 +34,26 @@ public class ShopCommand implements CommandExecutor, TabCompleter {
             return true;
         }
 
-        if (args[0].equals("create-shipping-box")) {
-            plugin.getShippingBoxManager().createShippingBox(player);
-        } else if (args[0].equals("create-market")) {
-            plugin.getMarketManager().createMarketChest(player, false);
-        } else if (args[0].equals("create-market-cancel")) {
-            plugin.getMarketManager().createMarketChest(player, true);
-        } else if (args[0].equals("create-bank-chest")) {
-            createBankChest(player, args);
-        } else {
-            sender.sendMessage("Invalid subcommand: " + args[0]);
+        switch (args[0]) {
+            case "create-shipping-box":
+                plugin.getShippingBoxManager().createShippingBox(player);
+                break;
+            case "create-market":
+                plugin.getMarketManager().createMarketChest(player, false);
+                break;
+            case "create-market-cancel":
+                plugin.getMarketManager().createMarketChest(player, true);
+                break;
+            case "create-bank-chest":
+                createBankChest(player, args);
+                break;
+            case "reload-prices":
+                plugin.getShippingBoxManager().reloadPrices(true);
+                sender.sendMessage("Reloaded prices.");
+                break;
+            default:
+                sender.sendMessage("Invalid subcommand: " + args[0]);
+                break;
         }
 
         return true;
@@ -78,7 +88,13 @@ public class ShopCommand implements CommandExecutor, TabCompleter {
                                       @Nonnull final String alias,
                                       @Nonnull final String[] args) {
         if (args.length == 1) {
-            return Arrays.asList("create-shipping-box", "create-market", "create-market-cancel", "create-bank-chest");
+            return Arrays.asList(
+                    "create-shipping-box",
+                    "create-market",
+                    "create-market-cancel",
+                    "create-bank-chest",
+                    "reload-prices"
+            );
         }
         if (args.length > 1 && args[0].equals("create-bank-chest")) {
             if (args.length == 2) {

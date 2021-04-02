@@ -42,7 +42,7 @@ public class SellCommand implements CommandExecutor, TabCompleter {
             price = -1;
         }
 
-        if (price < 0 || price > 1000000000) {
+        if (price <= 0 || price > 1000000000) {
             plugin.sendMessage(player, "market.messages.invalid-price", "{PRICE}", args[0]);
             return true;
         }

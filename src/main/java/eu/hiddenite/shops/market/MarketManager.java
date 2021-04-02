@@ -61,9 +61,6 @@ public class MarketManager implements Listener {
     private final NamespacedKey marketChestKey;
     private final NamespacedKey marketCancelChestKey;
 
-    private final Location marketLocation;
-    private final double marketLocationRadius;
-
     public MarketManager(ShopsPlugin plugin) {
         this.plugin = plugin;
 
@@ -73,15 +70,6 @@ public class MarketManager implements Listener {
         loadMarketFromDatabase();
 
         plugin.getServer().getPluginManager().registerEvents(this, plugin);
-
-        List<Double> pos = plugin.getConfig().getDoubleList("market.location.pos");
-        marketLocation = new Location(
-                Bukkit.getWorld(Objects.toString(plugin.getConfig().getString("market.location.world"), "world")),
-                pos.get(0), pos.get(1), pos.get(2)
-        );
-        marketLocationRadius = plugin.getConfig().getDouble("market.location.radius");
-
-        plugin.getLogger().info("Market location: " + marketLocation + " " + marketLocationRadius);
     }
 
     public void close() {
@@ -96,11 +84,17 @@ public class MarketManager implements Listener {
     }
 
     public void sellItem(Player player, long price) {
+        List<Double> pos = plugin.getConfig().getDoubleList("market.location.pos");
+        Location marketLocation = new Location(
+                Bukkit.getWorld(Objects.toString(plugin.getConfig().getString("market.location.world"), "world")),
+                pos.get(0), pos.get(1), pos.get(2)
+        );
+        double marketLocationRadius = plugin.getConfig().getDouble("market.location.radius");
+
         if (player.getWorld() != marketLocation.getWorld() ||
                 player.getLocation().distance(marketLocation) > marketLocationRadius
         ) {
             plugin.sendMessage(player, "market.messages.sell-too-far");
-            plugin.sendMessage(player, player.getWorld().getName() + player.getLocation().distance(marketLocation));
             return;
         }
 

@@ -36,16 +36,13 @@ public class ShippingBoxManager implements Listener {
     private final HashMap<Material, String> translatedNames = new HashMap<>();
     private Material itemOfTheDay = null;
 
-    private final int[] itemOfTheDayMultipliers = { 0, 2, 5, 10, 25, 50 };
-
     public ShippingBoxManager(ShopsPlugin plugin) {
         this.plugin = plugin;
         this.config = plugin.getConfig();
 
         shippingBoxKey = new NamespacedKey(plugin, "shipping-box");
 
-        loadPrices();
-        selectItemOfTheDay();
+        reloadPrices(false);
 
         plugin.getServer().getPluginManager().registerEvents(this, plugin);
     }
@@ -58,21 +55,30 @@ public class ShippingBoxManager implements Listener {
         return translatedNames.getOrDefault(material, material.name());
     }
 
+    public void reloadPrices(boolean isReload) {
+        loadPrices();
+        selectItemOfTheDay(isReload);
+    }
+
     private void loadPrices() {
+        prices.clear();
+        translatedNames.clear();
+        pricesOfTheDay.clear();
+
         try (PreparedStatement ps = plugin.getDatabase().prepareStatement(
-                "SELECT material_name, french_name, price, rarity FROM shipping_box_prices ORDER BY material_name"
+                "SELECT material_name, french_name, price, multiplier FROM shipping_box_prices ORDER BY material_name"
         )) {
             try (ResultSet rs = ps.executeQuery()) {
                 while (rs.next()) {
                     Material material = Material.valueOf(rs.getString(1));
                     String translatedName = rs.getString(2);
                     int price = rs.getInt(3);
-                    int rarity = rs.getInt(4);
+                    int multiplier = rs.getInt(4);
 
                     prices.put(material, price);
                     translatedNames.put(material, translatedName);
-                    if (rarity > 0) {
-                        pricesOfTheDay.put(material, price * itemOfTheDayMultipliers[rarity]);
+                    if (multiplier > 0) {
+                        pricesOfTheDay.put(material, price * multiplier);
                     }
                 }
             }
@@ -83,8 +89,9 @@ public class ShippingBoxManager implements Listener {
         }
     }
 
-    private void selectItemOfTheDay() {
+    private void selectItemOfTheDay(boolean isReload) {
         Calendar cal = Calendar.getInstance();
+        cal.add(Calendar.HOUR, -3);
 
         int day = cal.get(Calendar.DAY_OF_MONTH);
         int month = cal.get(Calendar.MONTH);
@@ -96,7 +103,7 @@ public class ShippingBoxManager implements Listener {
 
         plugin.getLogger().info("[ShippingBox] Item of the day: " + itemOfTheDay + " (hash " + hash + ")");
 
-        Bukkit.getScheduler().scheduleSyncDelayedTask(plugin, this::updateItemOfTheDaySigns, 200);
+        Bukkit.getScheduler().scheduleSyncDelayedTask(plugin, this::updateItemOfTheDaySigns, isReload ? 20 : 200);
     }
 
     private void updateItemOfTheDaySigns() {
@@ -324,11 +331,13 @@ public class ShippingBoxManager implements Listener {
         Player player = (Player)event.getPlayer();
 
         int itemCount = 0;
-        int totalPrice = 0;
+        long totalPrice = 0;
         for (ItemStack itemStack : event.getInventory().getContents()) {
             if (itemStack != null && itemStack.getType() != Material.AIR) {
+                long price = getPrice(itemStack.getType()) * itemStack.getAmount();
                 itemCount += itemStack.getAmount();
-                totalPrice += getPrice(itemStack.getType()) * itemStack.getAmount();
+                totalPrice += price;
+                plugin.getLogger().info("[ShippingBox] " + itemStack.getType().name() + " x " + itemStack.getAmount() + " @ " + price);
             }
         }
 
