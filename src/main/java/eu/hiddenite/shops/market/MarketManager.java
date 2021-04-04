@@ -444,7 +444,6 @@ public class MarketManager implements Listener {
         }
 
         itemsForSale.remove(marketItem);
-        pendingNotifications.add(marketItem);
 
         player.getInventory().setItem(slot, marketItem.itemStack);
 
@@ -462,6 +461,8 @@ public class MarketManager implements Listener {
                     "{QUANTITY}", marketItem.itemStack.getAmount(),
                     "{MATERIAL}", plugin.getTranslatedNameLower(marketItem.itemStack.getType()),
                     "{PRICE}", plugin.getEconomy().format(marketItem.price));
+        } else {
+            pendingNotifications.add(marketItem);
         }
     }
 
