@@ -45,6 +45,8 @@ public class ShippingBoxManager implements Listener {
         reloadPrices(false);
 
         plugin.getServer().getPluginManager().registerEvents(this, plugin);
+
+        plugin.getServer().getScheduler().scheduleSyncRepeatingTask(plugin, () -> selectItemOfTheDay(false), 200, 200);
     }
 
     public ShopsPlugin getPlugin() {
@@ -91,7 +93,7 @@ public class ShippingBoxManager implements Listener {
 
     private void selectItemOfTheDay(boolean isReload) {
         Calendar cal = Calendar.getInstance();
-        cal.add(Calendar.HOUR, -3);
+        cal.add(Calendar.HOUR, 3);
 
         int day = cal.get(Calendar.DAY_OF_MONTH);
         int month = cal.get(Calendar.MONTH);
@@ -99,11 +101,13 @@ public class ShippingBoxManager implements Listener {
         int hash = hashcodeFromInteger(year * 31 * 12 + month * 12 + day);
 
         ArrayList<Material> availableItems = new ArrayList<>(pricesOfTheDay.keySet());
-        itemOfTheDay = availableItems.get(hash % availableItems.size());
+        Material newItemOfTheDay = availableItems.get(hash % availableItems.size());
 
-        plugin.getLogger().info("[ShippingBox] Item of the day: " + itemOfTheDay + " (hash " + hash + ")");
-
-        Bukkit.getScheduler().scheduleSyncDelayedTask(plugin, this::updateItemOfTheDaySigns, isReload ? 20 : 200);
+        if (itemOfTheDay != newItemOfTheDay) {
+            itemOfTheDay = newItemOfTheDay;
+            plugin.getLogger().info("[ShippingBox] Item of the day: " + itemOfTheDay + " (hash " + hash + ")");
+            Bukkit.getScheduler().scheduleSyncDelayedTask(plugin, this::updateItemOfTheDaySigns, isReload ? 20 : 200);
+        }
     }
 
     private void updateItemOfTheDaySigns() {
