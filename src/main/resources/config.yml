@@ -41,10 +41,6 @@ market:
     left: "Left"
     right: "Right"
     page: "Page {PAGE}/{TOTAL}"
-  location:
-    world: "world"
-    pos: [10, 64, 10]
-    radius: 50
   messages:
     sell-usage: "/sell <price>"
     sell-success: "You've put {QUANTITY}x{MATERIAL} for sale at ${PRICE}."

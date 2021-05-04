@@ -5,6 +5,7 @@ import eu.hiddenite.shops.Economy;
 import eu.hiddenite.shops.ShopsPlugin;
 import eu.hiddenite.shops.helpers.BukkitSerializer;
 import eu.hiddenite.shops.helpers.ChestDataHelper;
+import net.kyori.adventure.text.Component;
 import org.bukkit.*;
 import org.bukkit.block.Block;
 import org.bukkit.entity.Player;
@@ -84,16 +85,7 @@ public class MarketManager implements Listener {
     }
 
     public void sellItem(Player player, long price) {
-        List<Double> pos = plugin.getConfig().getDoubleList("market.location.pos");
-        Location marketLocation = new Location(
-                Bukkit.getWorld(Objects.toString(plugin.getConfig().getString("market.location.world"), "world")),
-                pos.get(0), pos.get(1), pos.get(2)
-        );
-        double marketLocationRadius = plugin.getConfig().getDouble("market.location.radius");
-
-        if (player.getWorld() != marketLocation.getWorld() ||
-                player.getLocation().distance(marketLocation) > marketLocationRadius
-        ) {
+        if (!isNearMarket(player.getLocation())) {
             plugin.sendMessage(player, "market.messages.sell-too-far");
             return;
         }
@@ -128,6 +120,21 @@ public class MarketManager implements Listener {
         player.playSound(player.getLocation(), Sound.ENTITY_PLAYER_LEVELUP, 0.3f, 1.1f);
     }
 
+    private boolean isNearMarket(Location loc) {
+        for (int x = loc.getBlockX() - 5; x <= loc.getBlockX() + 5; ++x) {
+            for (int y = loc.getBlockY() - 2; y <= loc.getBlockY() + 2; ++y) {
+                if (y <= 0 || y >= 255) continue;
+                for (int z = loc.getBlockZ() - 5; z <= loc.getBlockZ() + 5; ++z) {
+                    Block block = loc.getWorld().getBlockAt(x, y, z);
+                    if (ChestDataHelper.isBlockChestType(block, marketChestKey)) {
+                        return true;
+                    }
+                }
+            }
+        }
+        return false;
+    }
+
     public void createMarketChest(Player player, boolean isCancel) {
         Block block = player.getTargetBlock(10);
         if (ChestDataHelper.setBlockChestType(block, isCancel ? marketCancelChestKey : marketChestKey)) {
@@ -153,7 +160,7 @@ public class MarketManager implements Listener {
         event.setCancelled(true);
         Player player = event.getPlayer();
 
-        Inventory inventory = Bukkit.createInventory(player, 54, plugin.getMessage("market.title"));
+        Inventory inventory = Bukkit.createInventory(player, 54, plugin.formatComponent("market.title"));
 
         OpenMarket openMarket = new OpenMarket();
         openMarket.location = block.getLocation().add(0.5, 1.0, 0.5);
@@ -265,7 +272,7 @@ public class MarketManager implements Listener {
 
         ItemStack[] content = materialsForSale
                 .stream()
-                .skip((page - 1) * 45)
+                .skip((page - 1) * 45L)
                 .limit(45)
                 .map(ItemStack::new)
                 .toArray(ItemStack[]::new);
@@ -286,16 +293,16 @@ public class MarketManager implements Listener {
             page -= 1;
         }
 
-        List<MarketItem> items = allItems.stream().skip((page - 1) * 45).limit(45).collect(Collectors.toList());
+        List<MarketItem> items = allItems.stream().skip((page - 1) * 45L).limit(45).collect(Collectors.toList());
 
         openMarket.inventory.setContents(items.stream().map(x -> {
             ItemStack stack = x.itemStack.clone();
 
-            List<String> lore = new ArrayList<>();
-            lore.add(plugin.formatMessage("market.price-tag",
+            List<Component> lore = new ArrayList<>();
+            lore.add(plugin.formatComponent("market.price-tag",
                     "{PRICE}", plugin.getEconomy().format(x.price))
             );
-            stack.setLore(lore);
+            stack.lore(lore);
 
             return stack;
         }).toArray(ItemStack[]::new));
@@ -335,7 +342,7 @@ public class MarketManager implements Listener {
                         return b.id - a.id;
                     }
                 })
-                .skip((page - 1) * 45)
+                .skip((page - 1) * 45L)
                 .limit(45)
                 .collect(Collectors.toList());
         openMarket.shownItems = items.stream().map(x -> x.id).collect(Collectors.toList());
@@ -343,11 +350,11 @@ public class MarketManager implements Listener {
         inventory.setContents(items.stream().map(x -> {
             ItemStack stack = x.itemStack.clone();
 
-            List<String> lore = new ArrayList<>();
-            lore.add(plugin.formatMessage("market.price-tag",
+            List<Component> lore = new ArrayList<>();
+            lore.add(plugin.formatComponent("market.price-tag",
                     "{PRICE}", plugin.getEconomy().format(x.price))
             );
-            stack.setLore(lore);
+            stack.lore(lore);
 
             return stack;
         }).toArray(ItemStack[]::new));
@@ -362,13 +369,13 @@ public class MarketManager implements Listener {
         if (openMarket.totalPages > 1) {
             ItemStack leftArrow = new ItemStack(Material.ARROW);
             ItemMeta meta = leftArrow.getItemMeta();
-            meta.setDisplayName(plugin.formatMessage("market.buttons.left"));
+            meta.displayName(plugin.formatComponent("market.buttons.left"));
             leftArrow.setItemMeta(meta);
             openMarket.inventory.setItem(48, leftArrow);
 
             ItemStack currentPage = new ItemStack(Material.PAPER);
             meta = currentPage.getItemMeta();
-            meta.setDisplayName(plugin.formatMessage(
+            meta.displayName(plugin.formatComponent(
                     "market.buttons.page",
                     "{PAGE}", openMarket.currentPage,
                     "{TOTAL}", openMarket.totalPages
@@ -378,7 +385,7 @@ public class MarketManager implements Listener {
 
             ItemStack rightArrow = new ItemStack(Material.ARROW);
             meta = rightArrow.getItemMeta();
-            meta.setDisplayName(plugin.formatMessage("market.buttons.right"));
+            meta.displayName(plugin.formatComponent("market.buttons.right"));
             rightArrow.setItemMeta(meta);
             openMarket.inventory.setItem(50, rightArrow);
         }

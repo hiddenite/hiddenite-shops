@@ -6,12 +6,18 @@ import eu.hiddenite.shops.commands.SellCommand;
 import eu.hiddenite.shops.commands.ShopCommand;
 import eu.hiddenite.shops.market.MarketManager;
 import eu.hiddenite.shops.shipping.ShippingBoxManager;
+import net.kyori.adventure.text.Component;
+import net.kyori.adventure.text.format.TextDecoration;
+import net.kyori.adventure.text.serializer.legacy.LegacyComponentSerializer;
 import org.bukkit.Material;
 import org.bukkit.command.PluginCommand;
 import org.bukkit.entity.Player;
 import org.bukkit.plugin.java.JavaPlugin;
 
+import java.util.Arrays;
+import java.util.List;
 import java.util.Objects;
+import java.util.stream.Collectors;
 
 public class ShopsPlugin extends JavaPlugin {
     private Database database;
@@ -61,8 +67,13 @@ public class ShopsPlugin extends JavaPlugin {
         return msg;
     }
 
+    public Component formatComponent(String key, Object... parameters) {
+        return LegacyComponentSerializer.legacySection().deserialize(formatMessage(key, parameters))
+                .decoration(TextDecoration.ITALIC, false);
+    }
+
     public void sendMessage(Player player, String key, Object... parameters) {
-        player.sendMessage(formatMessage(key, parameters));
+        player.sendMessage(formatComponent(key, parameters));
     }
 
     public String getTranslatedName(Material material) {
