@@ -406,6 +406,11 @@ public class ShippingBoxManager implements Listener {
             plugin.sendMessage(player, "shipping-box.messages.cant-sell-enchant");
             return false;
         }
+        if (stack.getItemMeta().lore() != null) {
+            plugin.sendMessage(player, "shipping-box.messages.cant-sell-enchant");
+            plugin.getLogger().warning(player.getName() + " tried to sell an item with lore: " + stack);
+            return false;
+        }
         return true;
     }
 }
