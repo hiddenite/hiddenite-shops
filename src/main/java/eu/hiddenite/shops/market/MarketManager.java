@@ -58,7 +58,7 @@ public class MarketManager implements Listener {
     private final ShopsPlugin plugin;
     private final List<MarketItem> itemsForSale = new ArrayList<>();
     private final List<MarketItem> pendingNotifications = new ArrayList<>();
-    private final Map<UUID, OpenMarket> openedMarkets = new HashMap<>();
+    private final Map<Inventory, OpenMarket> openMarkets = new HashMap<>();
     private final NamespacedKey marketChestKey;
     private final NamespacedKey marketCancelChestKey;
 
@@ -74,14 +74,14 @@ public class MarketManager implements Listener {
     }
 
     public void close() {
-        for (Map.Entry<UUID, OpenMarket> entry : openedMarkets.entrySet()) {
+        for (Map.Entry<Inventory, OpenMarket> entry : openMarkets.entrySet()) {
             InventoryHolder holder = entry.getValue().inventory.getHolder();
             if (!(holder instanceof Player)) {
                 continue;
             }
             ((Player)holder).closeInventory();
         }
-        openedMarkets.clear();
+        openMarkets.clear();
     }
 
     public void sellItem(Player player, long price) {
@@ -165,7 +165,7 @@ public class MarketManager implements Listener {
         OpenMarket openMarket = new OpenMarket();
         openMarket.location = block.getLocation().add(0.5, 1.0, 0.5);
         openMarket.inventory = inventory;
-        openedMarkets.put(player.getUniqueId(), openMarket);
+        openMarkets.put(inventory, openMarket);
 
         if (ChestDataHelper.isBlockChestType(block, marketChestKey)) {
             loadMarketHome(openMarket, 1);
@@ -184,7 +184,7 @@ public class MarketManager implements Listener {
 
     @EventHandler(ignoreCancelled = true)
     public void onInventoryClick(final InventoryClickEvent event) {
-        OpenMarket openMarket = openedMarkets.get(event.getWhoClicked().getUniqueId());
+        OpenMarket openMarket = openMarkets.get(event.getInventory());
         if (openMarket == null) {
             return;
         }
@@ -254,14 +254,14 @@ public class MarketManager implements Listener {
 
     @EventHandler(ignoreCancelled = true)
     public void onInventoryDrag(final InventoryDragEvent event) {
-        if (openedMarkets.containsKey(event.getWhoClicked().getUniqueId())) {
+        if (openMarkets.containsKey(event.getInventory())) {
             event.setCancelled(true);
         }
     }
 
     @EventHandler(ignoreCancelled = true)
     public void onInventoryClose(final InventoryCloseEvent event) {
-        OpenMarket openMarket = openedMarkets.remove(event.getPlayer().getUniqueId());
+        OpenMarket openMarket = openMarkets.remove(event.getInventory());
         if (openMarket != null) {
             ((Player)event.getPlayer()).playSound(openMarket.location, Sound.BLOCK_CHEST_CLOSE, 0.5f, 1.0f);
         }
